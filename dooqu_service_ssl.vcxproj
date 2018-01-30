@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\dooqu_service.h" />
+    <ClInclude Include="src\net\buffer_stream.h" />
     <ClInclude Include="src\net\service_error.h" />
     <ClInclude Include="src\net\ws_client.h" />
     <ClInclude Include="src\net\tcp_server.h" />

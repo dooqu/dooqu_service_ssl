@@ -236,6 +236,8 @@ int game_plugin::join_client(game_client* client)
 
 void game_plugin::remove_client_from_plugin(game_client* client)
 {
+	game_client_ptr client_ptr = client->shared_from_self();
+
     {
         ___lock___(this->clients_lock_, "game_plugin::remove_client_from_plugin");
         this->clients_.erase(client->id());

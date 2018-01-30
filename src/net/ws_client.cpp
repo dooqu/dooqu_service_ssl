@@ -4,19 +4,15 @@ namespace dooqu_service
 {
 	namespace net
 	{
-
-		ws_client::ws_client(io_service& ios, boost::asio::ssl::context& ssl_context)
-			: ios(ios),
+		ws_client::ws_client(io_service& ios, boost::asio::ssl::context& ssl_context) : ios(ios),
 			socket_(ios, ssl_context),
 			error_code_(dooqu_service::net::service_error::CLIENT_NET_ERROR),
 			recv_buffer(frame_data_.data),
-			read_pos_(-1), write_pos_(0),
-			buffer_pos(0),
+			read_pos_(-1),
+			write_pos_(0),
 			is_error_(false),
 			available_(false)
 		{
-			//this->p_buffer = &this->buffer[0];
-			//memset(this->buffer, 0, sizeof(char) * MAX_BUFFER_SIZE);
 			for (int i = 0; i < 8; i++)
 			{
 				buffer_stream* bs = buffer_stream::create(MAX_BUFFER_SIZE);
@@ -29,19 +25,19 @@ namespace dooqu_service
 
 		void ws_client::start()
 		{
+			ws_client_ptr self = shared_from_this();
 			socket_.async_handshake(boost::asio::ssl::stream_base::server,
-				[this](const boost::system::error_code& error)
+				[this, self](const boost::system::error_code& error)
 			{
 				if (!error)
 				{
-					std::cout << "handshake ok." << std::endl;
 					socket_.async_read_some(boost::asio::buffer(this->recv_buffer, ws_framedata::BUFFER_SIZE),
-						std::bind(&ws_client::ws_handshake_read_handle, this,
+						std::bind(&ws_client::ws_handshake_read_handle, shared_from_this(),
 							std::placeholders::_1, std::placeholders::_2));
 				}
 				else
 				{
-					std::cout << "handshake error" << std::endl;
+					___lock___(this->recv_lock_, "start");
 					this->on_error(dooqu_service::net::service_error::SSL_HANDSHAKE_ERROR);
 				}
 			});
@@ -50,10 +46,10 @@ namespace dooqu_service
 
 		void ws_client::ws_handshake_read_handle(const boost::system::error_code& error, size_t bytes_received)
 		{
+			ws_client_ptr self = shared_from_this();
 			if (!error)
 			{
 				request_.content_size += bytes_received;
-				std::cout << "read_handshake_data ok:" << bytes_received << std::endl;
 				ws_request_parser::parse_result ret = req_parser_.parse(request_, recv_buffer, recv_buffer + bytes_received);
 
 				if (ret == ws_request_parser::parse_result_ok)
@@ -63,7 +59,6 @@ namespace dooqu_service
 					size_t bytes_to_read = socket_.lowest_layer().available();
 					if (bytes_to_read > 0)
 					{
-						std::cout << "bytes_to_read:" << bytes_to_read << std::endl;
 						while (bytes_to_read > 0)
 						{
 							bytes_to_read -= boost::asio::read(socket_, boost::asio::buffer(recv_buffer, ws_framedata::BUFFER_SIZE));
@@ -82,7 +77,7 @@ namespace dooqu_service
 					if (request_.content_size <= 8 * 1024)
 					{
 						socket_.async_read_some(boost::asio::buffer(recv_buffer, ws_framedata::BUFFER_SIZE),
-							std::bind(&ws_client::ws_handshake_read_handle, this,
+							std::bind(&ws_client::ws_handshake_read_handle, self,
 								std::placeholders::_1,
 								std::placeholders::_2));
 						return;
@@ -92,7 +87,7 @@ namespace dooqu_service
 
 			const char* bad_request_400 = "HTTP/1.1 400 Bad Request\r\n\r\n";
 			boost::asio::async_write(this->socket_, boost::asio::buffer(bad_request_400, strlen(bad_request_400)),
-				[this](const boost::system::error_code& error, size_t bytes_sended)
+				[this, self](const boost::system::error_code& error, size_t bytes_sended)
 			{
 				___lock___(this->recv_lock_, "handshake");
 				this->on_error(dooqu_service::net::service_error::WS_HANDSHAKE_ERROR);
@@ -161,7 +156,7 @@ namespace dooqu_service
 		void ws_client::read_from_client()
 		{
 			this->socket_.async_read_some(boost::asio::buffer(this->frame_data_.data, ws_framedata::BUFFER_SIZE),
-				std::bind(&ws_client::on_data_received, this, std::placeholders::_1, std::placeholders::_2));
+				std::bind(&ws_client::on_data_received, shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 
 		void ws_client::on_data_received(const boost::system::error_code& error, size_t bytes_received)
@@ -171,12 +166,11 @@ namespace dooqu_service
 				do
 				{
 					___lock___(this->recv_lock_, "ws_client::on_data_received");
-
 					framedata_parse_result result = data_parser_.parse(frame_data_, bytes_received);
 					if (result == framedata_ok)
 					{
 						this->on_frame_data(&frame_data_);
-						
+
 						if (this->available() == false)
 						{
 							this->on_error(this->error_code_);
@@ -219,7 +213,7 @@ namespace dooqu_service
 				} while (true);
 
 				socket_.async_read_some(boost::asio::buffer(this->frame_data_.data + frame_data_.length, ws_framedata::BUFFER_SIZE - frame_data_.length),
-					std::bind(&ws_client::on_data_received, this,
+					std::bind(&ws_client::on_data_received, shared_from_this(),
 						std::placeholders::_1, std::placeholders::_2));
 			}
 			else
@@ -292,7 +286,12 @@ namespace dooqu_service
 				int bytes_writed = curr_buffer->write(format, arg_ptr);
 				va_end(arg_ptr);
 
-				if (bytes_writed == 0)
+				//-1是出错了， 有可能回一直返回-1,不是长度问题，造成死循环
+				if (bytes_writed > 0)
+				{
+					break;
+				}
+				else if (bytes_writed == 0)
 				{
 					curr_buffer->double_size();
 					continue;
@@ -302,7 +301,6 @@ namespace dooqu_service
 					//分配失败
 					return;
 				}
-				break;
 			}
 
 			//std::cout << "缓冲区为" << curr_buffer->read() << std::endl;
@@ -311,8 +309,8 @@ namespace dooqu_service
 				//只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
 				++read_pos_;
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
-					std::bind(&ws_client::send_handle, this, std::placeholders::_1));
-				this->is_data_sending_ = true;
+					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
+				//this->is_data_sending_ = true;
 			}
 		}
 
@@ -335,7 +333,11 @@ namespace dooqu_service
 				va_end(arg_ptr);
 
 				//-1是出错了， 有可能回一直返回-1,不是长度问题，造成死循环
-				if (bytes_writed == 0)
+				if (bytes_writed > 0)
+				{
+					break;
+				}
+				else if (bytes_writed == 0)
 				{
 					curr_buffer->double_size();
 					continue;
@@ -345,7 +347,6 @@ namespace dooqu_service
 					//分配失败
 					return;
 				}
-				break;
 			}
 
 			unsigned finbyte = (isFin) ? 1 : 0;
@@ -358,8 +359,8 @@ namespace dooqu_service
 				//只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
 				++read_pos_;
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
-					std::bind(&ws_client::send_handle, this, std::placeholders::_1));
-				this->is_data_sending_ = true;
+					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
+				//this->is_data_sending_ = true;
 			}
 		}
 
@@ -375,7 +376,7 @@ namespace dooqu_service
 			{
 				read_pos_ = -1;
 				write_pos_ = 0;
-				this->is_data_sending_ = false;
+				//this->is_data_sending_ = false;
 				return;
 			}
 
@@ -384,21 +385,21 @@ namespace dooqu_service
 			{
 				read_pos_ = -1;
 				write_pos_ = 0;
-				this->is_data_sending_ = false;
+				//this->is_data_sending_ = false;
 				return;
 			}
 			else
 			{
 				buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
-					std::bind(&ws_client::send_handle, this, std::placeholders::_1));
+					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
 			}
 		}
 
 
 		ws_client::~ws_client()
 		{
-			//std::cout << "~ssl_connection at MAIN." << std::endl;
+			std::cout << "~ws_client" << std::endl;
 			//boost::system::error_code err_code;
 			{
 				//___lock___(this->send_buffer_lock_, "ssl_connection::~ssl_connection::send_buffer_lock");

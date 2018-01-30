@@ -55,7 +55,7 @@ public:
     typedef std::map<const char*, game_plugin*, char_key_op> game_plugin_map;
     typedef std::list<game_plugin*> game_plugin_list;
     typedef std::map<const char*, game_zone*, char_key_op> game_zone_map;
-    typedef std::set<game_client*> game_client_map;
+    typedef std::set<game_client_ptr> game_client_map;
     typedef std::list<game_client*> game_client_destroy_list;
 
 

@@ -36,7 +36,6 @@ protected:
     command_dispatcher* command_dispatcher_;
 	command command_;
     tick_count actived_time;
-    //std::recursive_mutex commander_mutex_;
     post_monitor message_monitor_;
     post_monitor active_monitor_;
     int retry_update_times_;
@@ -125,9 +124,16 @@ public:
 		}
     }
 
+	std::shared_ptr<game_client> shared_from_self()
+	{
+		return std::dynamic_pointer_cast<game_client>(ws_client::shared_from_this());
+	}
+
     void disconnect(int code);
     void disconnect();
 };
+
+typedef std::shared_ptr<game_client> game_client_ptr;
 }
 }
 

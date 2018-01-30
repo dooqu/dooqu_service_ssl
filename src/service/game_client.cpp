@@ -128,7 +128,8 @@ void game_client::disconnect()
         this->available_ = false;
         boost::system::error_code err_code;
 
-		this->socket().async_shutdown([this](const boost::system::error_code& error) 
+		game_client_ptr self = std::dynamic_pointer_cast<game_client>(ws_client::shared_from_this());
+		this->socket().async_shutdown([this, self](const boost::system::error_code& error) 
 		{
 		});
     }

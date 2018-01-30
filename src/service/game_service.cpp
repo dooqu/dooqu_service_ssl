@@ -183,7 +183,7 @@ void game_service::on_stop()
         for (game_client_map::iterator curr_client = this->clients_.begin();
                 curr_client != this->clients_.end(); ++curr_client)
         {
-            game_client* client = (*curr_client);
+            game_client_ptr client = (*curr_client);
             client->disconnect(service_error::SERVER_CLOSEING);
         }
     }
@@ -249,11 +249,10 @@ void game_service::on_client_connected(ws_client* t_client)
     client->available_ = true;
     //设置命令的监听者为当前service
     client->set_command_dispatcher(this);
-
     {
 		___lock___(this->clients_mutex_, "game_service::on_client_join");
         //在登录用户组中注册
-        this->clients_.insert(client);
+        this->clients_.insert(client->shared_from_self());
     }//对用户组上锁
 
     client->active();
@@ -269,27 +268,7 @@ void game_service::on_client_leave(game_client* client, int leave_code)
     client->set_command_dispatcher(NULL);
     {
         ___lock___(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
-        this->clients_.erase(client);
-    }
-
-	goto _LABEL_D;
-    {
-        //___lock___(client->send_buffer_lock_, "game_service::on_client_leave::send_buffer_lock_");
-		client->send_lock_.lock();
-        if(client->read_pos_ == -1)
-        {
-			client->send_lock_.unlock();
-            this->on_destroy_client(client);
-            return;
-        }
-		client->send_lock_.unlock();
-    }
-
-	_LABEL_D:
-    {
-        ___lock___(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
-        this->client_list_for_destroy_.push_back(client);
-        printf("INSERT client to destroy list.\n");
+        this->clients_.erase(client->shared_from_self());
     }
 }
 
@@ -349,7 +328,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
             for (game_client_map::iterator curr_client = this->clients_.begin();
                     curr_client != this->clients_.end(); ++curr_client)
             {
-                game_client* client = (*curr_client);
+                game_client_ptr client = (*curr_client);
                 if (client->get_actived() > 10 * 1000)
                 {
                     //int ret = service_error::TIME_OUT;
@@ -517,7 +496,7 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     {
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
         ___lock___(this->clients_mutex_, "game_service::end_auth::clients_mutex");
-        if(this->clients_.erase(client) <= 0)
+        if(this->clients_.erase(client->shared_from_self()) <= 0)
             return;
     }
 

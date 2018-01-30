@@ -111,6 +111,9 @@
     <ClInclude Include="src\service\data_dispatcher.h">
       <Filter>头文件\service</Filter>
     </ClInclude>
+    <ClInclude Include="src\net\buffer_stream.h">
+      <Filter>头文件\net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\net\tcp_server.cpp">
