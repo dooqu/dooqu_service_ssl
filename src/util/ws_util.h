@@ -3,6 +3,14 @@
 #include <cstdint>
 #include <cstddef>
 #include <codecvt>
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+#ifdef _WIN32
+#pragma comment(lib, "ws2_32.lib")
+#endif
 
 namespace dooqu_service
 {
@@ -146,6 +154,32 @@ public:
 		std::wstring rep = conv.from_bytes(begin, end);
 
 		std::wcout << "content:" << rep << std::endl;
+	}
+
+	static unsigned short get_16int_from_net_buf(char* error_buf)
+	{
+		unsigned short status;
+		memcpy(&status, error_buf, 2);
+		return ntohs(status);
+	}
+
+	static void fill_net_buf_by_16int(char* buffer, unsigned short error_code)
+	{
+		error_code = htons(error_code);
+		memcpy(buffer, &error_code, 2);
+	}
+
+	static unsigned long get_32int_from_net_buf(char* error_buf)
+	{
+		unsigned short status;
+		memcpy(&status, error_buf, 4);
+		return ntohl(status);
+	}
+
+	static void fill_net_buf_by_32int(char* buffer, unsigned long error_code)
+	{
+		error_code = htonl(error_code);
+		memcpy(buffer, &error_code, 4);
 	}
 };
 }

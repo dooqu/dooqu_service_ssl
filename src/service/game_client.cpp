@@ -112,27 +112,11 @@ void game_client::disconnect(int code)
 
     if (this->available())
     {
+		this->available_ = false;
         this->error_code_ = code;
-        //this->write("ERR %d%c", this->error_code_, NULL);        //this->disconnect_when_io_end();
-        this->disconnect();
+		this->write_error(code);
     }
 }
 
-
-void game_client::disconnect()
-{
-    ___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
-
-    if (this->available())
-    {
-        this->available_ = false;
-        boost::system::error_code err_code;
-
-		game_client_ptr self = std::dynamic_pointer_cast<game_client>(ws_client::shared_from_this());
-		this->socket().async_shutdown([this, self](const boost::system::error_code& error) 
-		{
-		});
-    }
-}
 }
 }

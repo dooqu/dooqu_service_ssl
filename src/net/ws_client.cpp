@@ -6,11 +6,12 @@ namespace dooqu_service
 	{
 		ws_client::ws_client(io_service& ios, boost::asio::ssl::context& ssl_context) : ios(ios),
 			socket_(ios, ssl_context),
-			error_code_(dooqu_service::net::service_error::CLIENT_NET_ERROR),
+			error_code_(dooqu_service::net::service_error::NO_ERROR),
 			recv_buffer(frame_data_.data),
 			read_pos_(-1),
 			write_pos_(0),
 			is_error_(false),
+			error_sended_(false),
 			available_(false)
 		{
 			for (int i = 0; i < 8; i++)
@@ -219,7 +220,7 @@ namespace dooqu_service
 			else
 			{
 				___lock___(this->recv_lock_, "ws_client::on_data_received");
-				this->on_error(dooqu_service::net::service_error::CLIENT_NET_ERROR);
+				this->on_error(dooqu_service::net::service_error::WS_ERROR_NORMAL_CLOSURE);
 			}
 		}
 
@@ -360,7 +361,6 @@ namespace dooqu_service
 				++read_pos_;
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
 					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
-				//this->is_data_sending_ = true;
 			}
 		}
 
@@ -376,7 +376,6 @@ namespace dooqu_service
 			{
 				read_pos_ = -1;
 				write_pos_ = 0;
-				//this->is_data_sending_ = false;
 				return;
 			}
 
@@ -385,7 +384,6 @@ namespace dooqu_service
 			{
 				read_pos_ = -1;
 				write_pos_ = 0;
-				//this->is_data_sending_ = false;
 				return;
 			}
 			else
@@ -396,25 +394,32 @@ namespace dooqu_service
 			}
 		}
 
+		void ws_client::async_close()
+		{
+			___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
+
+			if (this->available())
+			{
+				this->available_ = false;
+				boost::system::error_code err_code;
+				ws_client_ptr self = shared_from_this();
+				this->socket().async_shutdown([this, self](const boost::system::error_code& error)
+				{
+				});
+			}
+		}
+
 
 		ws_client::~ws_client()
 		{
 			std::cout << "~ws_client" << std::endl;
-			//boost::system::error_code err_code;
+			int size = this->send_buffer_sequence_.size();
+			for (int i = 0; i < size; i++)
 			{
-				//___lock___(this->send_buffer_lock_, "ssl_connection::~ssl_connection::send_buffer_lock");
-				int size = this->send_buffer_sequence_.size();
-
-				for (int i = 0; i < size; i++)
-				{
-					buffer_stream* curr_buffer = this->send_buffer_sequence_.at(i);
-					buffer_stream::destroy(curr_buffer);
-				}
-				this->send_buffer_sequence_.clear();
+				buffer_stream* curr_buffer = this->send_buffer_sequence_.at(i);
+				buffer_stream::destroy(curr_buffer);
 			}
+			this->send_buffer_sequence_.clear();
 		}
 	}
 }
-
-
-

@@ -44,7 +44,6 @@ protected:
 
     void create_worker_thread();
     void start_accept();
-    void accept_handle(const boost::system::error_code& error, ws_client_ptr client);
 
     virtual ws_client* on_create_client() = 0;
     virtual void on_client_connected(ws_client* client) = 0;

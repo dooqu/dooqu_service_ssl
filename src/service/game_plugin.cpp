@@ -165,7 +165,7 @@ void game_plugin::on_update_timeout_clients()
         if (client->actived_time.elapsed() > 60 * 1000)
         {
             int code = dooqu_service::service::service_error::TIME_OUT;
-            this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, code));// client->disconnect(service_error::TIME_OUT);
+            this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, code));
         }
     });
 }
@@ -197,7 +197,7 @@ void game_plugin::unload()
 
         for_each_client([this](game_client* client)
         {
-            int ret = service_error::SERVER_CLOSEING;
+            int ret = service_error::WS_ERROR_GOING_AWAY;
             this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
         });
 

@@ -39,8 +39,8 @@ protected:
     post_monitor message_monitor_;
     post_monitor active_monitor_;
     int retry_update_times_;
-
     int plugin_addr_;
+	
     std::thread::id* curr_dispatcher_thread_id_;
 
 	virtual int on_ws_handshake(ws_request* request)
@@ -130,7 +130,7 @@ public:
 	}
 
     void disconnect(int code);
-    void disconnect();
+    //void disconnect();
 };
 
 typedef std::shared_ptr<game_client> game_client_ptr;

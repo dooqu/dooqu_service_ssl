@@ -33,16 +33,6 @@ void tcp_server::create_worker_thread()
 }
 
 
-void tcp_server::start_accept()
-{
-    //提前把game_client变量准备好。该game_client实例如果监听失败，在on_accept的error分支中delete。
-	ws_client* client = this->on_create_client();    //投递accept监听
-	ws_client_ptr new_client(client, std::bind(&tcp_server::on_destroy_client, this, client));
-    this->acceptor.async_accept(client->socket().lowest_layer(), std::bind(&tcp_server::accept_handle, this, std::placeholders::_1, new_client));
-
-    this->is_accepting_ = true;
-}
-
 
 void tcp_server::start()
 {
@@ -81,29 +71,8 @@ void tcp_server::start()
             this->start_accept();
         }
 
+		this->is_accepting_ = true;
         this->on_started();
-    }
-}
-
-
-void tcp_server::stop_accept()
-{
-    if (this->is_accepting_ == true)
-    {
-        boost::system::error_code error;
-        this->acceptor.cancel(error);
-        if(error)
-        {
-            std::cout << "cancel error:" << error.message() << std::endl;
-        }
-
-        this->acceptor.close(error);
-        if(error)
-        {
-            std::cout << "close error:" << error.message() << std::endl;
-        }
-
-        this->is_accepting_ = false;
     }
 }
 
@@ -141,6 +110,50 @@ void tcp_server::stop()
 }
 
 
+void tcp_server::start_accept()
+{
+	ws_client* client = this->on_create_client(); 
+	ws_client_ptr new_client(client, std::bind(&tcp_server::on_destroy_client, this, client));
+	this->acceptor.async_accept(client->socket().lowest_layer(), 
+	[this, new_client](const boost::system::error_code& error) 
+	{
+		if (!error)
+		{
+			if (this->is_running_)
+			{
+				std::cout << new_client->socket().lowest_layer().remote_endpoint().address().to_string() << " connected." << std::endl;
+				//处理新加入的game_client对象，这个时候game_client的available已经是true;
+				this->on_client_connected(new_client.get());				
+				//deliver new async accept;
+				start_accept();
+			}
+		}
+		//else if error, the new_client will be auto released.
+	});
+}
+
+
+void tcp_server::stop_accept()
+{
+	if (this->is_accepting_ == true)
+	{
+		boost::system::error_code error;
+		this->acceptor.cancel(error);
+		if (error)
+		{
+			std::cout << "cancel error:" << error.message() << std::endl;
+		}
+
+		this->acceptor.close(error);
+		if (error)
+		{
+			std::cout << "close error:" << error.message() << std::endl;
+		}
+
+		this->is_accepting_ = false;
+	}
+}
+
 void tcp_server::on_start()
 {
 }
@@ -160,32 +173,6 @@ void tcp_server::on_stoped()
 {
 }
 
-void tcp_server::accept_handle(const boost::system::error_code& error, ws_client_ptr client)
-{
-    if (!error)
-    {
-        if (this->is_running_)
-        {
-            std::cout << client->socket().lowest_layer().remote_endpoint().address().to_string() << std::endl;
-            //处理新加入的game_client对象，这个时候game_client的available已经是true;
-            this->on_client_connected(client.get());
-            //处理当前的game_client对象，继续投递一个新的接收请求；
-            start_accept();
-        }
-        else
-        {
-            this->on_destroy_client(client.get());
-        }
-    }
-    else
-    {
-        //如果走到这个分支，说明game_server已经调用了stop，停止了服务；
-        //但因为start_accept，已经提前投递了N个game_client
-        //所以这里返回要对game_client进行销毁处理
-        //printf("tcp_server.accept_handle canceled:%s\n", error.message().c_str());
-        this->on_destroy_client(client.get());
-    }
-}
 
 
 tcp_server::~tcp_server()

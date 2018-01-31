@@ -53,6 +53,8 @@ protected:
 
 	bool is_error_;
 
+	bool error_sended_;
+
 	//接收握手数据的缓冲区，指向ws_framedata内的buffer
 	char* recv_buffer;
 
@@ -131,6 +133,23 @@ public:
 
     void write(const char* format, ...);
 
+	void write_error(uint16_t error_code, char* error_reason = NULL)
+	{
+		___lock___(this->recv_lock_, "write_error")
+		if (this->error_sended_ == false)
+		{
+			this->error_sended_ = true;
+			//reset client's error code.
+			this->error_code_ = error_code;
+			//fill the error code to buffer.
+			char buff_err_code[3] = { 0 };
+			ws_util::fill_net_buf_by_16int(buff_err_code, error_code);
+			
+			this->write_frame(true, ws_framedata::opcode::CLOSE, "%s%s", buff_err_code, error_reason);
+		}
+	}
+
+	void async_close();
 };
 
 typedef std::shared_ptr<ws_client> ws_client_ptr;

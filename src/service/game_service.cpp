@@ -184,7 +184,7 @@ void game_service::on_stop()
                 curr_client != this->clients_.end(); ++curr_client)
         {
             game_client_ptr client = (*curr_client);
-            client->disconnect(service_error::SERVER_CLOSEING);
+            client->disconnect(service_error::WS_ERROR_GOING_AWAY);
         }
     }
 
@@ -329,10 +329,10 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
                     curr_client != this->clients_.end(); ++curr_client)
             {
                 game_client_ptr client = (*curr_client);
-                if (client->get_actived() > 10 * 1000)
+                if (client->command_dispatcher_ == this && client->get_actived() > 15 * 1000)
                 {
-                    //int ret = service_error::TIME_OUT;
-                    //this->post_handle_to_another_thread(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
+                    int ret = service_error::TIME_OUT;
+                    this->post_handle_to_another_thread(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
                 }
             }
         }
@@ -354,19 +354,10 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
 
         this->on_destroy_clients_in_destroy_list(false);
 
-        //if (tcp_client::LOG_IO_DATA)
-        {
-            //char io_buffer_msg[64] = { 0 };
-            //sprintf(io_buffer_msg, "I/O : %ld / %ld\r", tcp_client::CURR_RECE_TOTAL / 5, tcp_client::CURR_SEND_TOTAL / 5);
-            //printf(io_buffer_msg);
-
-            //tcp_client::CURR_RECE_TOTAL = 0;
-            //tcp_client::CURR_SEND_TOTAL = 0;
-        }
         //如果服务没有停止， 那么继续下一次计时
         if (this->is_running_)
         {
-            this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(5));
+            this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(15));
             this->check_timeout_timer.async_wait(std::bind(&game_service::on_check_timeout_clients, this, std::placeholders::_1));
         }
     }
@@ -477,6 +468,7 @@ void game_service::begin_auth(game_plugin* plugin, game_client* client, command*
 {
     const char* game_id = plugin->game_id();
     req_callback f = std::bind(&game_service::end_auth, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, game_id, client);
+	
     bool ret = this->start_http_request("127.0.0.1", "/", f);
 
     if(ret == false)
@@ -496,7 +488,7 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     {
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
         ___lock___(this->clients_mutex_, "game_service::end_auth::clients_mutex");
-        if(this->clients_.erase(client->shared_from_self()) <= 0)
+        if(this->clients_.find(client->shared_from_self()) != this->clients_.end())
             return;
     }
 

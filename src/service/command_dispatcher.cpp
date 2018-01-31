@@ -47,12 +47,20 @@ void command_dispatcher::on_client_framedata(game_client* client, dooqu_service:
 	case ws_framedata::TEXT:
 	case ws_framedata::BINARY:
 		this->on_client_data(client, &framedata->data[framedata->data_pos_]);
+		client->write_frame(true, dooqu_service::net::ws_framedata::opcode::PING, "");
 		break;
 	case ws_framedata::PING:
 	case ws_framedata::PONG:
 		break;
 	case ws_framedata::CLOSE:
-		client->write_frame(true, dooqu_service::net::ws_framedata::opcode::CLOSE, "");
+		if (client->error_sended_ == false)
+		{
+			client->write_error(framedata->code);
+		}
+		else
+		{
+			client->async_close();
+		}
 		break;
 	default:
 		break;
