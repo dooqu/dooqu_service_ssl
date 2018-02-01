@@ -23,6 +23,7 @@ namespace net
 	{
 	protected:
 		std::vector<char> buffer_;
+		bool is_error_frame_;
 		int size_;
 		enum
 		{
@@ -31,6 +32,16 @@ namespace net
 
 	public:
 		int pos_start;
+		bool is_error_frame()
+		{
+			return this->is_error_frame_;
+		}
+
+		void set_error_frame(bool is_error_frame)
+		{
+			this->is_error_frame_ = is_error_frame;
+		}
+		
 		static buffer_stream* create(int buffer_size)
 		{
 			assert(buffer_size > DATA_POS);
@@ -59,7 +70,7 @@ namespace net
 		}
 
 		//设定buffer的默认size 和默认值
-		buffer_stream(size_t size) : buffer_(size, 0)
+		buffer_stream(size_t size) : buffer_(size, 0), is_error_frame_(false)
 		{
 			this->size_ = 0;
 		}

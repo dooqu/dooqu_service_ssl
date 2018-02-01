@@ -117,10 +117,7 @@ public:
         std::cout << "on_frame_data" << std::endl;
 		if (this->command_dispatcher_ != NULL)
 		{
-			if (this->available())
-			{
-				this->command_dispatcher_->on_client_framedata(this, frame);
-			}			
+			this->command_dispatcher_->on_client_framedata(this, frame);
 		}
     }
 

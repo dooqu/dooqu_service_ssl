@@ -94,7 +94,6 @@ protected:
     virtual void on_client_leave(game_client* client, int code);
     virtual void on_destroy_client(ws_client*);
     virtual void on_check_timeout_clients(const boost::system::error_code &error);
-    virtual void on_destroy_clients_in_destroy_list(bool force_destroy);
     /*end_events;*/
 
     /*start functions*/
@@ -112,7 +111,7 @@ protected:
     //应用层注册
     void client_login_handle(game_client* client, command* command);
     void robot_login_handle(game_client* client, command* command);
-    void check_client_on_service_handle(game_client* host, command* command);
+//    void check_client_on_service_handle(game_client* host, command* command);
 //
 //    template<typename TYPE>
 //    inline void* memory_pool_malloc()

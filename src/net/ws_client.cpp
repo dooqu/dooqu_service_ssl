@@ -11,7 +11,8 @@ namespace dooqu_service
 			read_pos_(-1),
 			write_pos_(0),
 			is_error_(false),
-			error_sended_(false),
+			error_frame_recved_(0),
+			error_frame_sended_(0),
 			available_(false)
 		{
 			for (int i = 0; i < 8; i++)
@@ -37,8 +38,8 @@ namespace dooqu_service
 							std::placeholders::_1, std::placeholders::_2));
 				}
 				else
-				{
-					___lock___(this->recv_lock_, "start");
+				{	
+					//when error at ssl handshake, simply close the connection.
 					this->on_error(dooqu_service::net::service_error::SSL_HANDSHAKE_ERROR);
 				}
 			});
@@ -74,7 +75,7 @@ namespace dooqu_service
 				}
 				else if (ret == ws_request_parser::parse_result_indeterminate)
 				{
-					//buffer max size is 8k.
+					//buffer max length is 8kbyte.
 					if (request_.content_size <= 8 * 1024)
 					{
 						socket_.async_read_some(boost::asio::buffer(recv_buffer, ws_framedata::BUFFER_SIZE),
@@ -90,7 +91,7 @@ namespace dooqu_service
 			boost::asio::async_write(this->socket_, boost::asio::buffer(bad_request_400, strlen(bad_request_400)),
 				[this, self](const boost::system::error_code& error, size_t bytes_sended)
 			{
-				___lock___(this->recv_lock_, "handshake");
+				//___lock___(this->recv_lock_, "handshake");
 				this->on_error(dooqu_service::net::service_error::WS_HANDSHAKE_ERROR);
 			});
 
@@ -169,14 +170,29 @@ namespace dooqu_service
 					___lock___(this->recv_lock_, "ws_client::on_data_received");
 					framedata_parse_result result = data_parser_.parse(frame_data_, bytes_received);
 					if (result == framedata_ok)
-					{
-						this->on_frame_data(&frame_data_);
-
-						if (this->available() == false)
+					{						
+						if (frame_data_.opcode_ == ws_framedata::opcode::CLOSE)
 						{
-							this->on_error(this->error_code_);
-							return;
+							this->error_frame_recved_ = 1;
+							if (this->error_frame_sended_ == 0)
+							{
+								//client first send the closure request.
+								//then server send the confirm closure frame.
+								//after write handle complete, server should close the socket.
+								this->write_error(frame_data_.code, frame_data_.reason);								
+							}
+							else if(this->error_frame_sended_ == 2)
+							{
+								//in this case, server first send the closure frame,and client confirmed.
+								//client send this confirm closure frame.at this time,server should shutdown low_layer socket immediately.
+								this->async_close();
+							}
 						}
+						else if (this->error_code_ == service_error::NO_ERROR)
+						{
+							this->on_frame_data(&frame_data_);
+						}				
+
 						//粘包，继续解析
 						if (frame_data_.pos_ < frame_data_.length)
 						{
@@ -219,7 +235,7 @@ namespace dooqu_service
 			}
 			else
 			{
-				___lock___(this->recv_lock_, "ws_client::on_data_received");
+				//___lock___(this->recv_lock_, "ws_client::on_data_received");
 				this->on_error(dooqu_service::net::service_error::WS_ERROR_NORMAL_CLOSURE);
 			}
 		}
@@ -265,7 +281,6 @@ namespace dooqu_service
 
 		void ws_client::write(char* data)
 		{
-			//this->write(data);
 			this->write("%s", data);
 		}
 
@@ -311,7 +326,6 @@ namespace dooqu_service
 				++read_pos_;
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
 					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
-				//this->is_data_sending_ = true;
 			}
 		}
 
@@ -352,8 +366,9 @@ namespace dooqu_service
 
 			unsigned finbyte = (isFin) ? 1 : 0;
 			finbyte = (finbyte << 7) | (unsigned char)opcode;
-
 			*curr_buffer->at(curr_buffer->pos_start) = finbyte;
+			curr_buffer->set_error_frame(opcode == ws_framedata::opcode::CLOSE);
+
 			//std::cout << "缓冲区为" << curr_buffer->read() << std::endl;
 			if (read_pos_ == -1)
 			{
@@ -365,29 +380,49 @@ namespace dooqu_service
 		}
 
 
+		void ws_client::write_error(uint16_t error_code, char* error_reason)
+		{
+			if (this->error_frame_sended_ == 0)
+			{
+				this->error_frame_sended_ = 1;
+				//reset client's error code.
+				this->error_code_ = error_code;
+				//fill the error code to buffer.
+				char buff_err_code[3] = { 0 };
+				ws_util::fill_net_buf_by_int16(buff_err_code, error_code);
+
+				this->write_frame(true, ws_framedata::opcode::CLOSE, "%s%s", buff_err_code, error_reason);
+			}
+		}
+
+
 		///在发送完毕后，对发送队列中的数据进行处理；
 		///发送数据是靠async_send 来实现的， 它的内部是使用多次async_send_same来实现数据全部发送；
 		///所以，如果想保障数据的有序、正确到达，一定不要在第一次async_send结束之前发起第二次async_send；
 		///实现采用一个发送的数据报队列，按数据报进行依次的发送,靠回调来驱动循环发送，直到当次队列中的数据全部发送完毕；
 		void ws_client::send_handle(const boost::system::error_code& error)
 		{
-			___lock___(this->send_lock_, "ssl_connection::send_handle::send_buffer_lock_");
-			if (error)
+			buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
+			if (curr_buffer->is_error_frame())
 			{
-				read_pos_ = -1;
-				write_pos_ = 0;
-				return;
+				___lock___(this->recv_lock_, "ssl_connection::send_handle::send_buffer_lock_");
+				this->error_frame_sended_ = 2;				
+				if (this->error_frame_recved_ == 1)
+				{
+					this->async_close();					
+				}
 			}
 
-			buffer_stream* curr_buffer = NULL;
-			if (++read_pos_ >= write_pos_)
+			___lock___(this->send_lock_, "ssl_connection::send_handle::send_buffer_lock_");
+			if (error || ++read_pos_ >= write_pos_ || error_frame_sended_ == 2)
 			{
+				//if an error occured or the messages in the sequencen is all sended, then reset and return.
 				read_pos_ = -1;
 				write_pos_ = 0;
-				return;
 			}
 			else
 			{
+				//if not error and has remain buffers to send,then continue.
 				buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 				boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
 					std::bind(&ws_client::send_handle, shared_from_this(), std::placeholders::_1));
@@ -396,17 +431,14 @@ namespace dooqu_service
 
 		void ws_client::async_close()
 		{
-			___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
-
-			if (this->available())
+			//___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
+			boost::system::error_code err_code;
+			ws_client_ptr self = shared_from_this();
+			this->socket().async_shutdown([this, self](const boost::system::error_code& error)
 			{
-				this->available_ = false;
-				boost::system::error_code err_code;
-				ws_client_ptr self = shared_from_this();
-				this->socket().async_shutdown([this, self](const boost::system::error_code& error)
-				{
-				});
-			}
+				this->socket().lowest_layer().close();
+				std::cout << "close ok." << std::endl;
+			});
 		}
 
 

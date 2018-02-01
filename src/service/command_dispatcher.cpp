@@ -47,22 +47,15 @@ void command_dispatcher::on_client_framedata(game_client* client, dooqu_service:
 	case ws_framedata::TEXT:
 	case ws_framedata::BINARY:
 		this->on_client_data(client, &framedata->data[framedata->data_pos_]);
-		client->write_frame(true, dooqu_service::net::ws_framedata::opcode::PING, "");
+		ws_util::wprint(framedata->data_begin(), framedata->data_end());
 		break;
 	case ws_framedata::PING:
 	case ws_framedata::PONG:
 		break;
 	case ws_framedata::CLOSE:
-		if (client->error_sended_ == false)
-		{
-			client->write_error(framedata->code);
-		}
-		else
-		{
-			client->async_close();
-		}
 		break;
 	default:
+		//不合规的数据，关闭客户链接
 		break;
 	}
 }

@@ -156,30 +156,30 @@ public:
 		std::wcout << "content:" << rep << std::endl;
 	}
 
-	static unsigned short get_16int_from_net_buf(char* error_buf)
+	static unsigned short get_int16_from_net_buf(char* error_buf)
 	{
 		unsigned short status;
 		memcpy(&status, error_buf, 2);
 		return ntohs(status);
 	}
 
-	static void fill_net_buf_by_16int(char* buffer, unsigned short error_code)
+	static void fill_net_buf_by_int16(char* buffer, unsigned short error_code)
 	{
 		error_code = htons(error_code);
 		memcpy(buffer, &error_code, 2);
 	}
 
-	static unsigned long get_32int_from_net_buf(char* error_buf)
+	static unsigned long get_int64_from_net_buf(char* error_buf)
 	{
 		unsigned short status;
-		memcpy(&status, error_buf, 4);
+		memcpy(&status, error_buf, 8);
 		return ntohl(status);
 	}
 
-	static void fill_net_buf_by_32int(char* buffer, unsigned long error_code)
+	static void fill_net_buf_by_int64(char* buffer, unsigned long error_code)
 	{
 		error_code = htonl(error_code);
-		memcpy(buffer, &error_code, 4);
+		memcpy(buffer, &error_code, 8);
 	}
 };
 }

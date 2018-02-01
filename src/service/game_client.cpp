@@ -30,6 +30,7 @@ game_client::~game_client()
 //这样在tcp_client的断开处理中、即使传递0，也不会被赋值；
 void game_client::on_error(const int error)
 {
+	assert(this->command_dispatcher_ != NULL);
 	if (this->is_error_ == false)
 	{
 		this->is_error_ = true;
@@ -38,8 +39,6 @@ void game_client::on_error(const int error)
 		{
 			this->error_code_ = error;
 		}
-
-		assert(this->command_dispatcher_ != NULL);
 		if (this->command_dispatcher_ != NULL)
 		{
 			this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->command_dispatcher_, this));
@@ -68,7 +67,7 @@ void game_client::fill(char* id, char* name, char* profile)
 void game_client::dispatch_data(char* command_data)
 {
     printf("dispatch_data:%s\n", command_data);
-    //assert(this->cmd_dispatcher_ != NULL);
+
     if (this->command_dispatcher_ == NULL)
         return;
 
@@ -109,12 +108,11 @@ void game_client::simulate_command_process(char* command_data)
 void game_client::disconnect(int code)
 {
     ___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
-
-    if (this->available())
+   // if (this->available())
     {
 		this->available_ = false;
         this->error_code_ = code;
-		this->write_error(code);
+		this->write_error(code, "reason is");
     }
 }
 

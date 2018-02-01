@@ -208,7 +208,7 @@ void game_service::on_stop()
 
 void game_service::on_stoped()
 {
-    on_destroy_clients_in_destroy_list(true);
+    //on_destroy_clients_in_destroy_list(true);
 }
 
 
@@ -257,7 +257,6 @@ void game_service::on_client_connected(ws_client* t_client)
 
     client->active();
     client->start();
-    //printf("game_client connected.\n");
 }
 
 
@@ -282,36 +281,6 @@ void game_service::on_destroy_client(ws_client* t_client)
 	}
     client->~game_client();
     memory_pool_free<game_client>(client);
-    //boost::singleton_pool<game_client, sizeof(game_client)>::free(client);
-}
-
-void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
-{
-    ___lock___(this->destroy_list_mutex_, "game_service::on_destroy_clients_in_destroy_list");
-    for(list<game_client*>::iterator e = this->client_list_for_destroy_.begin(); e != this->client_list_for_destroy_.end(); )
-    {
-        game_client* client = *e;
-        //std::cout << "destroy one client in destroy list." << std::endl;
-        if(force_destroy)
-        {
-            this->on_destroy_client(client);
-            this->client_list_for_destroy_.erase(e++);
-        }
-        else
-        {
-            //___lock___(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
-			client->send_lock_.lock();
-            if(client->read_pos_ == -1)
-            {
-				client->send_lock_.unlock();
-                this->on_destroy_client(client);
-                this->client_list_for_destroy_.erase(e++);
-                continue;
-            }
-			client->send_lock_.unlock();
-            ++e;
-        }
-    }
 }
 
 
@@ -329,7 +298,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
                     curr_client != this->clients_.end(); ++curr_client)
             {
                 game_client_ptr client = (*curr_client);
-                if (client->command_dispatcher_ == this && client->get_actived() > 15 * 1000)
+                if (client->command_dispatcher_ == this && client->get_actived() > 5 * 1000)
                 {
                     int ret = service_error::TIME_OUT;
                     this->post_handle_to_another_thread(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
@@ -352,7 +321,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
             timeout_count.restart();
         }
 
-        this->on_destroy_clients_in_destroy_list(false);
+        //this->on_destroy_clients_in_destroy_list(false);
 
         //如果服务没有停止， 那么继续下一次计时
         if (this->is_running_)
@@ -582,7 +551,7 @@ game_service::~game_service()
         this->stop();
     }
 
-    on_destroy_clients_in_destroy_list(true);
+    //on_destroy_clients_in_destroy_list(true);
 
     this->plugins_.clear();
     //销毁所有的游戏区
