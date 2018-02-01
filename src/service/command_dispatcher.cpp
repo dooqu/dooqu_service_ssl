@@ -7,30 +7,30 @@ namespace service
 {
 command_dispatcher::~command_dispatcher()
 {
-    this->unregist_all_handles();
+	this->unregist_all_handles();
 }
 
 
 bool command_dispatcher::regist_handle(const char* cmd_name, command_handler handler)
 {
-    std::map<const char*, command_handler, char_key_op>::iterator handle_pair = this->handles.find(cmd_name);
+	std::map<const char*, command_handler, char_key_op>::iterator handle_pair = this->handles.find(cmd_name);
 
-    if (handle_pair == this->handles.end())
-    {
-        this->handles[cmd_name] = handler;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+	if (handle_pair == this->handles.end())
+	{
+		this->handles[cmd_name] = handler;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 
 void command_dispatcher::simulate_client_data(game_client* client, char* data)
 {
 	___lock___(client->recv_lock_, "command_dispatcher::simulate_client_data");
-    this->on_client_data(client, data);
+	this->on_client_data(client, data);
 }
 
 int command_dispatcher::on_client_handshake(game_client*, ws_request* req)
@@ -78,25 +78,25 @@ void command_dispatcher::on_client_data(game_client* client, char* frame_data)
 
 void command_dispatcher::on_client_command(game_client* client, command* command)
 {
-    std::map<const char*, command_handler, char_key_op>::iterator handle_pair = this->handles.find(command->name());
+	std::map<const char*, command_handler, char_key_op>::iterator handle_pair = this->handles.find(command->name());
 
-    if (handle_pair != this->handles.end())
-    {
-        command_handler* handle = &handle_pair->second;
-        (this->**handle)(client, command);
-    }
+	if (handle_pair != this->handles.end())
+	{
+		command_handler* handle = &handle_pair->second;
+		(this->**handle)(client, command);
+	}
 }
 
 
 void command_dispatcher::unregist_handle(char* cmd_name)
 {
-    this->handles.erase(cmd_name);
+	this->handles.erase(cmd_name);
 }
 
 
 void command_dispatcher::unregist_all_handles()
 {
-    this->handles.clear();
+	this->handles.clear();
 }
 }
 }
