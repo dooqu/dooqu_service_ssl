@@ -1,4 +1,4 @@
-﻿#include "service_status.h"
+#include "service_status.h"
 #include <iostream>
 //std::map<std::thread::id, char*> thread_status::messages;
 //

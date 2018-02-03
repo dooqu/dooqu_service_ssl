@@ -2,6 +2,8 @@
 #define WS_UTIL_H
 #include <cstdint>
 #include <cstddef>
+#include <locale>
+#include <utility>
 #include <codecvt>
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -142,14 +144,14 @@ public:
 
 	static std::string encode_to_utf8(wchar_t* wstr)
 	{
-		static std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt;
+		std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt;
 		return cvt.to_bytes(wstr);
 	}
 
 	template<typename START, typename END>
 	static void wprint(START begin, END end)
 	{
-		std::wcout.imbue(std::locale("chs"));
+		//std::wcout.imbue(std::locale("chs"));
 		std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 		std::wstring rep = conv.from_bytes(begin, end);
 

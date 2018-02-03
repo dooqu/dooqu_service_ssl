@@ -1,4 +1,4 @@
-﻿#include "game_zone.h"
+#include "game_zone.h"
 #include <functional>
 
 namespace dooqu_service

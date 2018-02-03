@@ -1,4 +1,4 @@
-﻿#ifndef __GAME_SERVICE_H__
+#ifndef __GAME_SERVICE_H__
 #define __GAME_SERVICE_H__
 
 #include <set>

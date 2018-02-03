@@ -1,4 +1,4 @@
-﻿#include "command_dispatcher.h"
+#include "command_dispatcher.h"
 #include "game_client.h"
 
 namespace dooqu_service

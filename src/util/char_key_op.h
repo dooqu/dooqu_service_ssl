@@ -1,4 +1,4 @@
-﻿#ifndef __CHAR_KEY_OPERATOR_H__
+#ifndef __CHAR_KEY_OPERATOR_H__
 #define __CHAR_KEY_OPERATOR_H__
 
 #include <cstring>

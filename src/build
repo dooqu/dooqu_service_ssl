@@ -1,0 +1,2 @@
+rm -f bin/Debug/libdooqu_service_ssl.a
+ar -r -s bin/Debug/libdooqu_service_ssl.a obj/Debug/src/main.o obj/Debug/src/net/tcp_server.o obj/Debug/src/net/ws_client.o obj/Debug/src/net/ws_request_parser.o obj/Debug/src/service/async_task.o obj/Debug/src/service/command.o obj/Debug/src/service/command_dispatcher.o obj/Debug/src/service/game_client.o obj/Debug/src/service/game_plugin.o obj/Debug/src/service/game_service.o obj/Debug/src/service/game_zone.o obj/Debug/src/service/post_monitor.o obj/Debug/src/util/service_status.o obj/Debug/src/util/utility.o

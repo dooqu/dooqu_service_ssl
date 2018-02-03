@@ -1,4 +1,4 @@
-﻿#ifndef __GAME_PLUGIN_H__
+#ifndef __GAME_PLUGIN_H__
 #define __GAME_PLUGIN_H__
 
 #include <iostream>

@@ -1,4 +1,4 @@
-﻿#ifndef __GAME_INFO_H__
+#ifndef __GAME_INFO_H__
 #define __GAME_INFO_H__
 
 #include <boost/noncopyable.hpp>

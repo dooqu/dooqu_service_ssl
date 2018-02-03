@@ -1,4 +1,4 @@
-﻿#ifndef __THREADS_LOCK_STATUS__
+#ifndef __THREADS_LOCK_STATUS__
 #define __THREADS_LOCK_STATUS__
 #include <map>
 #include <thread>

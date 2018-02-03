@@ -1,4 +1,4 @@
-﻿#include "game_plugin.h"
+#include "game_plugin.h"
 #include "game_service.h"
 
 

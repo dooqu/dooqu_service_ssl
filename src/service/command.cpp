@@ -1,4 +1,4 @@
-﻿#include "command.h"
+#include "command.h"
 #include <cstring>
 
 namespace dooqu_service

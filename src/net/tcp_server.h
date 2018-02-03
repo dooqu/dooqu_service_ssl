@@ -1,4 +1,4 @@
-﻿#ifndef __TCP_SERVER_H__
+#ifndef __TCP_SERVER_H__
 #define __TCP_SERVER_H__
 
 #include <iostream>

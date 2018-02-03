@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "src"
+		},
+		{
+			"path": "/home/jack/cpp_proj/dooqu_server/src"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"array": "cpp",
+			"initializer_list": "cpp",
+			"utility": "cpp",
+			"*.ipp": "cpp",
+			"iostream": "cpp",
+			"map": "cpp"
+		}
+	}
+}

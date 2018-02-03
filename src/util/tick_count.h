@@ -1,4 +1,4 @@
-﻿#ifndef __TICK_COUNT_H__
+#ifndef __TICK_COUNT_H__
 #define __TICK_COUNT_H__
 
 #include <chrono>

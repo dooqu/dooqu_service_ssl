@@ -1,0 +1,239 @@
+# depslib dependency file v1.0
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/main.cpp
+	<cstdio>
+	<iostream>
+	<map>
+	<cstring>
+	"dooqu_service.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/dooqu_service.h
+	"service/game_service.h"
+	"service/game_plugin.h"
+	"service/async_task.h"
+	"util/service_status.h"
+	"util/utility.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/game_service.h
+	<set>
+	<queue>
+	<list>
+	<map>
+	<thread>
+	<mutex>
+	<functional>
+	<boost/asio/deadline_timer.hpp>
+	<boost/pool/singleton_pool.hpp>
+	"../net/tcp_server.h"
+	"../service/command_dispatcher.h"
+	"../util/utility.h"
+	"../util/char_key_op.h"
+	"game_client.h"
+	"service_error.h"
+	"async_task.h"
+	"http_request.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/tcp_server.h
+	<iostream>
+	<map>
+	<vector>
+	<thread>
+	<mutex>
+	<functional>
+	<boost/asio.hpp>
+	"ws_client.h"
+	"../util/tick_count.h"
+	"../util/utility.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_client.h
+	<cstdarg>
+	<string>
+	<iostream>
+	<memory>
+	<mutex>
+	<functional>
+	<boost/asio.hpp>
+	<boost/asio/ssl.hpp>
+	"service_error.h"
+	"ws_request_parser.h"
+	"ws_framedata_parser.h"
+	"../util/ws_util.h"
+	"buffer_stream.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/service_error.h
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_request_parser.h
+	"ws_request.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_request.h
+	<string>
+	<vector>
+
+1517543564 /home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_framedata_parser.h
+	<iostream>
+	<WinSock2.h>
+	<arpa/inet.h>
+	"../util/ws_util.h"
+
+1517543797 /home/jack/cpp_proj/dooqu_service_ssl/src/util/ws_util.h
+	<cstdint>
+	<cstddef>
+	<locale>
+	<utility>
+	<codecvt>
+	<WinSock2.h>
+	<arpa/inet.h>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/net/buffer_stream.h
+	<vector>
+	<boost/pool/singleton_pool.hpp>
+	<boost/noncopyable.hpp>
+	"../util/utility.h"
+	<WinSock2.h>
+	<arpa/inet.h>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/util/utility.h
+	<cstdio>
+	<chrono>
+	<stdarg.h>
+	<stdlib.h>
+	<cstring>
+	"boost/pool/singleton_pool.hpp"
+	"service_status.h"
+	<WinSock2.h>
+	<arpa/inet.h>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/util/service_status.h
+	<map>
+	<thread>
+	<mutex>
+	<deque>
+	"boost/pool/singleton_pool.hpp"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/util/tick_count.h
+	<chrono>
+	<boost/noncopyable.hpp>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/command_dispatcher.h
+	<map>
+	<cstring>
+	"command.h"
+	"service_error.h"
+	"../net/ws_request.h"
+	"../net/ws_framedata_parser.h"
+	"../util/utility.h"
+	"../util/ws_util.h"
+	"../util/char_key_op.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/command.h
+	<vector>
+	<iostream>
+	<boost/noncopyable.hpp>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/service_error.h
+	"../net/service_error.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/util/char_key_op.h
+	<cstring>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/game_client.h
+	<iostream>
+	<mutex>
+	<codecvt>
+	"../net/ws_client.h"
+	"game_info.h"
+	"command.h"
+	"command_dispatcher.h"
+	"../util/tick_count.h"
+	"post_monitor.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/game_info.h
+	<boost/noncopyable.hpp>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/post_monitor.h
+	"../util/tick_count.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/async_task.h
+	<set>
+	<deque>
+	<mutex>
+	"boost/asio.hpp"
+	"../util/tick_count.h"
+	"../util/utility.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/http_request.h
+	<iostream>
+	<istream>
+	<ostream>
+	<string>
+	<boost/asio.hpp>
+	<boost/bind.hpp>
+	<boost/function.hpp>
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/game_plugin.h
+	<iostream>
+	<map>
+	<mutex>
+	<memory>
+	<boost/asio/deadline_timer.hpp>
+	<boost/noncopyable.hpp>
+	"command_dispatcher.h"
+	"game_client.h"
+	"game_zone.h"
+	"http_request.h"
+	"service_error.h"
+	"../util/utility.h"
+	"../util/char_key_op.h"
+
+1517542934 /home/jack/cpp_proj/dooqu_service_ssl/src/service/game_zone.h
+	<iostream>
+	<cstring>
+	<list>
+	<set>
+	<vector>
+	<thread>
+	<mutex>
+	<functional>
+	<boost/asio/deadline_timer.hpp>
+	<boost/noncopyable.hpp>
+	"game_service.h"
+	"../util/tick_count.h"
+	"../util/utility.h"
+	"async_task.h"
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/net/tcp_server.cpp
+
+1517544917 source:/home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_client.cpp
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/net/ws_request_parser.cpp
+	"ws_request_parser.h"
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/async_task.cpp
+	"async_task.h"
+	<iostream>
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/command.cpp
+	<cstring>
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/command_dispatcher.cpp
+	"game_client.h"
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/game_client.cpp
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/game_plugin.cpp
+	"game_service.h"
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/game_service.cpp
+	"game_plugin.h"
+	"game_zone.h"
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/game_zone.cpp
+	<functional>
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/service/post_monitor.cpp
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/util/service_status.cpp
+	<iostream>
+
+1517542934 source:/home/jack/cpp_proj/dooqu_service_ssl/src/util/utility.cpp
+	"utility.h"
+

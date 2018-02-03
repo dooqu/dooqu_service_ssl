@@ -1,4 +1,4 @@
-﻿#ifndef __GAME_ZONE_H__
+#ifndef __GAME_ZONE_H__
 #define __GAME_ZONE_H__
 
 #include <iostream>

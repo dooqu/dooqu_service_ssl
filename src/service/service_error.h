@@ -1,4 +1,4 @@
-﻿#ifndef __SERVICE_SERVICE_ERROR_H__
+#ifndef __SERVICE_SERVICE_ERROR_H__
 #define __SERVICE_SERVICE_ERROR_H__
 
 #include "../net/service_error.h"

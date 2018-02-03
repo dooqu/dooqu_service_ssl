@@ -1,4 +1,4 @@
-﻿#ifndef __POST_MONITOR_H__
+#ifndef __POST_MONITOR_H__
 #define __POST_MONITOR_H__
 
 #include "../util/tick_count.h"
