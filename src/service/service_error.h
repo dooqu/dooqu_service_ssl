@@ -9,16 +9,16 @@ namespace service
 {
 struct service_error : dooqu_service::net::service_error
 {
-	static const int TIME_OUT = 4016;
-    static const int CLIENT_HAS_LOGINED = 4011;
-    static const int GAME_IS_FULL = 4012;
-    static const int GAME_NOT_EXISTED = 4015;   
-    static const int SERVER_CLOSEING = 1001;
-    static const int ARGUMENT_ERROR = 4018;
-    static const int LOGIN_SERVICE_ERROR = 4019;
-    static const int LOGIN_CONCURENCY_LIMIT = 4020;
-    static const int CONSTANT_REQUEST = 4021;
-    static const int COMMAND_ERROR = 4022;
+	static const unsigned short TIME_OUT = 4016;
+    static const unsigned short CLIENT_HAS_LOGINED = 4011;
+    static const unsigned short GAME_IS_FULL = 4012;
+    static const unsigned short GAME_NOT_EXISTED = 4015;   
+    static const unsigned short SERVER_CLOSEING = 1001;
+    static const unsigned short ARGUMENT_ERROR = 4018;
+    static const unsigned short LOGIN_SERVICE_ERROR = 4019;
+    static const unsigned short LOGIN_CONCURENCY_LIMIT = 4020;
+    static const unsigned short CONSTANT_REQUEST = 4021;
+    static const unsigned short COMMAND_ERROR = 4022;
 
 };
 }

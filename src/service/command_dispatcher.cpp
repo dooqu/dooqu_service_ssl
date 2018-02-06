@@ -1,5 +1,5 @@
 #include "command_dispatcher.h"
-#include "game_client.h"
+
 
 namespace dooqu_service
 {
@@ -27,18 +27,18 @@ bool command_dispatcher::regist_handle(const char* cmd_name, command_handler han
 }
 
 
-void command_dispatcher::simulate_client_data(game_client* client, char* data)
+void command_dispatcher::simulate_client_data(ws_client* client, char* data)
 {
-	___lock___(client->recv_lock_, "command_dispatcher::simulate_client_data");
+	___lock___(client->get_recv_mutex(), "command_dispatcher::simulate_client_data");
 	this->on_client_data(client, data);
 }
 
-int command_dispatcher::on_client_handshake(game_client*, ws_request* req)
+int command_dispatcher::on_client_handshake(ws_client*, ws_request* req)
 {
 	return 0;
 }
 
-void command_dispatcher::on_client_framedata(game_client* client, dooqu_service::net::ws_framedata* framedata)
+void command_dispatcher::on_client_framedata(ws_client* client, dooqu_service::net::ws_framedata* framedata)
 {
 	//std::string rep = ws_util::encode_to_utf8(L"我收到你的消息");
 	switch (framedata->opcode_)
@@ -60,23 +60,20 @@ void command_dispatcher::on_client_framedata(game_client* client, dooqu_service:
 	}
 }
 
-void command_dispatcher::on_client_data(game_client* client, char* frame_data)
+void command_dispatcher::on_client_data(ws_client* client, char* frame_data)
 {
-	if (client->available_ == false)
+	//client->curr_dispatcher_thread_id_ = &std::this_thread::get_id();
+	command* client_command = ((command*)client->get_command());
+	client_command->reset(frame_data);
+	if (client_command->is_correct())
 	{
-		return;
+		this->on_client_command(client, client_command);
 	}
-	client->curr_dispatcher_thread_id_ = &std::this_thread::get_id();
-	client->command_.reset(frame_data);
-	if (client->command_.is_correct())
-	{
-		this->on_client_command(client, &client->command_);
-	}
-	client->curr_dispatcher_thread_id_ = NULL;
+	//client->curr_dispatcher_thread_id_ = NULL;
 }
 
 
-void command_dispatcher::on_client_command(game_client* client, command* command)
+void command_dispatcher::on_client_command(ws_client* client, command* command)
 {
 	std::map<const char*, command_handler, char_key_op>::iterator handle_pair = this->handles.find(command->name());
 

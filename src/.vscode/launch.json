@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/../bin/Debug/dooqu_service_ssl",
+            "program": "${workspaceRoot}/dooqu_service_ssl",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

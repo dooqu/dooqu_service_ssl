@@ -11,7 +11,7 @@ int main()
 {
     service_status::create_new();
     service_status::instance()->init(std::this_thread::get_id());
-    dooqu_service::service::game_service s(8000);
+    dooqu_service::service::game_service<tcp_stream> s(8000);
     s.start();
     
     getchar();

@@ -11,7 +11,7 @@
 #include <functional>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/noncopyable.hpp>
-#include "game_service.h"
+#include "../basic/ws_service.h"
 #include "../util/tick_count.h"
 #include "../util/utility.h"
 #include "async_task.h"
@@ -22,6 +22,7 @@ namespace dooqu_service
 namespace service
 {
 using namespace boost::asio;
+using namespace dooqu_service::basic;
 
 class game_plugin;
 
@@ -40,9 +41,9 @@ class game_plugin;
 
 class game_zone
 {
-    friend class game_service;
+    //friend class game_service;
 
-private:
+public:
 
     //game_zone.onload.
     void load();
@@ -83,7 +84,7 @@ protected:
     //game_zone是否在线
     bool is_onlined_;
     //io_service object.
-    game_service* game_service_;
+    ws_service* game_service_;
 
     //onload事件
     virtual void on_load();
@@ -95,7 +96,7 @@ public:
 
     static bool LOG_TIMERS_INFO;
 
-    game_zone(game_service* service, const char* id);
+    game_zone(ws_service* service, const char* id);
 
     //get game_zone's id
     char* get_id()

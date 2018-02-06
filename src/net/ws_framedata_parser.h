@@ -10,7 +10,7 @@
 #ifdef _WIN32
 #pragma comment(lib, "ws2_32.lib")
 #endif
-
+#include "../basic/ws_framedata.h"
 #include "../util/ws_util.h"
 
 namespace dooqu_service
@@ -18,88 +18,13 @@ namespace dooqu_service
 namespace net
 {
 using namespace dooqu_service::util;
+using namespace dooqu_service::basic;
+
 enum framedata_parse_result
 {
     framedata_ok,
     framedata_error,
     framedata_indeterminate
-};
-
-struct ws_framedata
-{
-    enum opcode
-    {
-        CONTINUATION = 0x0,
-        TEXT = 0x1,
-        BINARY = 0x2,
-        CLOSE = 0x8,
-        PING = 0x9,
-        PONG = 0xa
-    };
-
-    enum
-    {
-        BUFFER_SIZE = 1024
-    };
-
-    enum state
-    {
-        ready,
-        fin_and_rsv_ok,
-        mask_and_payload_len_ok,
-        mask_key_ok,
-        payload_data_ok
-    } state_;
-
-    ws_framedata()
-    {
-        reset();
-    }
-
-    unsigned char fin_;
-    unsigned char rsv1_;
-    unsigned char rsv2_;
-    unsigned char rsv3_;
-    unsigned char opcode_;
-    unsigned char mask_;
-    unsigned char masking_key_[4];
-    unsigned long long payload_length_;
-    unsigned long long data_pos_;
-    unsigned long long pos_;
-    unsigned long long length;
-    unsigned long long start_pos_;
-    unsigned short code;
-    char* reason;
-
-    char data[BUFFER_SIZE];
-
-    void reset()
-    {
-        fin_ = 0;
-        rsv1_ = 0;
-        rsv2_ = 0;
-        rsv3_ = 0;
-        opcode_ = 0;
-        mask_ = 0;
-        payload_length_ = 0;
-        data_pos_ = 0;
-        pos_ = 0;
-        length = 0;
-        start_pos_ = 0;
-        state_ = ready;
-        code = 0;
-        reason = NULL;
-    }
-
-    char* data_begin()
-    {
-        return &this->data[this->data_pos_];
-    }
-
-    char* data_end()
-    {
-        return &this->data[this->data_pos_] + this->payload_length_;
-    }
 };
 
 class ws_framedata_parser
@@ -225,10 +150,10 @@ public:
         if (frame.opcode_ == 8)
         {
             frame.code = 1005;
-            //¹Ø±ÕÖ¡µÄÄ¬ÈÏstatus=1005
+            //ï¿½Ø±ï¿½Ö¡ï¿½ï¿½Ä¬ï¿½ï¿½status=1005
             if (frame.payload_length_ >= 2)
             {
-                //Èç¹ûÊÇ¹Ø±ÕÖ¡£¬Í¬Ê±ÔÚpayloadÊý¾ÝÖÐÌî³äÁË¹Ø±ÕµÄcodeºÍreason
+                //ï¿½ï¿½ï¿½ï¿½Ç¹Ø±ï¿½Ö¡ï¿½ï¿½Í¬Ê±ï¿½ï¿½payloadï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¹Ø±Õµï¿½codeï¿½ï¿½reason
                 frame.code = dooqu_service::util::ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
                 std::cout << "close code:" << frame.code << std::endl;
 

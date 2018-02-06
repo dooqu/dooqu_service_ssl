@@ -8,27 +8,23 @@
             "type": "shell",
             "command": "g++",
             "args": [
-                // Ask msbuild to generate full paths for file names.
-                //"/property:GenerateFullPaths=true",
-                //"/t:build"
                 "-g",
                 "-fPIC",
                 "-Wall",
                 "-fpermissive",
                 "-std=c++11",
-                "-c",
+                "*.cpp",
                 "net/*.cpp",
                 "util/*.cpp",
-                "service/*.cpp",              
-                
+                "service/*.cpp", 
+                "-o dooqu_service_ssl",             
                 "-l:libboost_system.a",
                 "-l:libcrypto.a",
                 "-l:libssl.a",
                 "-pthread",
                 "-ldl",
                 "/usr/local/lib/libcrypto.a",
-                "/usr/local/lib/libssl.a",
-                "-o ${workspaceRoot}/../bin/Debug/"
+                "/usr/local/lib/libssl.a"
             ],
             "group": {
                 "kind": "build",
