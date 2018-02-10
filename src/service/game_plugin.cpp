@@ -138,9 +138,9 @@ void game_plugin::on_client_command(ws_client* client, command* command)
     if (this->game_service_->is_running() == false)
         return;
 
-    //if (client->active_monitor_.can_active() == false)
+    if (client->can_active() == false)
     {
-     //   client->disconnect(service_error::CONSTANT_REQUEST);
+        client->disconnect((uint16_t)service_error::CONSTANT_REQUEST, "CONSTANT REQUEST");
         return;
     }
 
@@ -229,7 +229,7 @@ int game_plugin::join_client(ws_client* client)
     if (ret == service_error::NO_ERROR)
     {
         //编译
-        //client->set_command_dispatcher(this);
+        client->set_command_dispatcher(this);
         //把当前玩家加入成员组
         this->clients_[client->id()] = client;
         //调用玩家进入成员组后的事件
@@ -256,8 +256,7 @@ void game_plugin::remove_client_from_plugin(ws_client* client)
 //负责处理玩家离开game_plugin后的所有逻辑
 void game_plugin::remove_client(ws_client* client)
 {
-    //client->set_command_dispatcher(NULL);
-
+    client->set_command_dispatcher(NULL);
     string server_url, path_url;
 
     if (this->need_update_offline_client(client, server_url, path_url))
@@ -299,7 +298,7 @@ void game_plugin::end_update_client(const boost::system::error_code& err,
     else
     {
         printf("http update client failed,retry...\n");
-        if (--client->retry_update_times_ > 0)
+        if (client->update_retry_count(true) <= 3)
         {
             this->game_service_->post_handle(std::bind(&game_plugin::remove_client, this, client), 3000, false);
             return;

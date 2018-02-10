@@ -55,7 +55,7 @@ protected:
 	tick_count actived_time;
 	post_monitor message_monitor_;
 	post_monitor active_monitor_;
-	int retry_update_times_;
+	int update_retry_count_;
 	int plugin_addr_;
 
 	std::thread::id* curr_dispatcher_thread_id_;
@@ -150,9 +150,10 @@ protected:
 		}
 	}
 
-	void set_command_dispatcher(command_dispatcher* dispatcher)
+	void set_command_dispatcher(void* dispatcher)
 	{
-		this->command_dispatcher_ = dispatcher;
+		command_dispatcher* cmd_dispatcher = (command_dispatcher*)dispatcher;
+		this->command_dispatcher_ = cmd_dispatcher;	
 	}
 
 	void active()
@@ -163,6 +164,11 @@ protected:
 	int64_t actived_time_elapsed()
 	{
 		return this->actived_time.elapsed();
+	}
+
+	int update_retry_count(bool increase = false)
+	{
+		return (increase)? ++update_retry_count_ : update_retry_count_;
 	}
 
 	void* get_command()
@@ -181,9 +187,9 @@ protected:
 		return (T*)this->game_info_;
 	}
 
-	void set_game_info(void* game_info)
+	void set_game_info(void* info)
 	{
-		this->game_info_ = game_info;
+		this->game_info_ = (game_info*)info;
 	}
 
 	bool can_message()
@@ -210,15 +216,13 @@ protected:
 		return std::dynamic_pointer_cast<game_session<SOCK_TYPE>>(shared_from_this());
 	}
 
-	void disconnect(unsigned short code, char* reason)
+	void disconnect(unsigned short code, char *reason)
 	{
 		___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
 		// if (this->available())
-		{
-			this->available_ = false;
-			this->error_code_ = code;
-			this->write_error(code, "reason is");
-		}
+		this->available_ = false;
+		this->error_code_ = code;
+		this->write_error(code, reason);
 	}
 };
 
@@ -233,7 +237,7 @@ inline game_session<tcp_stream>::game_session(io_service& ios) :
 {
 	this->id_[0] = 0;
 	this->name_[0] = 0;
-	this->retry_update_times_ = UP_RE_TIMES;
+	this->update_retry_count_ = 0;
 	this->active();
 	this->message_monitor_.init(5, 4000);
 	this->active_monitor_.init(30, 60 * 1000);
@@ -251,7 +255,7 @@ inline game_session<ssl_stream>::game_session(io_service& ios, boost::asio::ssl:
 {
 	this->id_[0] = 0;
 	this->name_[0] = 0;
-	this->retry_update_times_ = UP_RE_TIMES;
+	this->update_retry_count_ = 0;
 	this->active();
 	this->message_monitor_.init(5, 4000);
 	this->active_monitor_.init(30, 60 * 1000);

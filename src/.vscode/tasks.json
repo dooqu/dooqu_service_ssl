@@ -13,18 +13,11 @@
                 "-Wall",
                 "-fpermissive",
                 "-std=c++11",
-                "*.cpp",
+                "-c",
+                "basic/*.h",
                 "net/*.cpp",
                 "util/*.cpp",
-                "service/*.cpp", 
-                "-o dooqu_service_ssl",             
-                "-l:libboost_system.a",
-                "-l:libcrypto.a",
-                "-l:libssl.a",
-                "-pthread",
-                "-ldl",
-                "/usr/local/lib/libcrypto.a",
-                "/usr/local/lib/libssl.a"
+                "service/*.cpp"
             ],
             "group": {
                 "kind": "build",
@@ -41,12 +34,9 @@
         {
             "label": "build dooqu_servcie_ssl.a",
             "type": "shell",
-            "command": "ar",
+            "command": "./build",
             "args": [               
-                    "-r",
-                    "-s" ,
-                    "${workspaceRoot}/../bin/Debug/libdooqu_service_ssl.a",
-                    "tcp_server.o"  
+            
             ],
             "group": {
                 "kind": "build",

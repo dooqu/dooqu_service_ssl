@@ -4,6 +4,8 @@ namespace dooqu_service
 {
 namespace basic
 {
+#include <stddef.h>
+
 struct ws_framedata
 {
     enum opcode

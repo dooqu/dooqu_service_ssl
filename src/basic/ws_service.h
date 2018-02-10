@@ -7,7 +7,7 @@ namespace dooqu_service
 {
 namespace basic
 {
-class async_task;
+class ws_client;
 
 typedef std::function<void(const boost::system::error_code&, const int status_code, const std::string&)> http_request_callback;
 class ws_service

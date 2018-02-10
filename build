@@ -1,0 +1,6 @@
+rm -f bin/Debug/libdooqu_service_ssl.a
+ar -x /usr/local/lib/libboost_system.a
+ar -x /usr/local/ssl/lib/libcrypto.a
+ar -x /usr/local/ssl/lib/libssl.a
+ar -r -s bin/Debug/libdooqu_service_ssl.a *.o
+rm -f *.o

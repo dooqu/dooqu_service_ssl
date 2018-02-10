@@ -1,0 +1,55 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build dooqu_service_ssl o file",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g",
+                "-fPIC",
+                "-Wall",
+                "-fpermissive",
+                "-std=c++11",
+                "-I/usr/local/ssl/include",
+                "-c",
+                "${workspaceFolder}/src/basic/*.h",
+                "${workspaceFolder}/src/net/*.cpp",
+                "${workspaceFolder}/src/util/*.cpp",
+                "${workspaceFolder}/src/service/*.cpp"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true 
+            },
+
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "silent"
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build dooqu_servcie_ssl.a",
+            "type": "shell",
+            "command": "${workspaceFolder}/build",
+            "args": [               
+            
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true 
+            },
+
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "silent"
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        }
+    ]
+}
