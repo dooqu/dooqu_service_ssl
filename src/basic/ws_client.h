@@ -1,20 +1,16 @@
 #ifndef __WS_CLIENT_H__
 #define __WS_CLIENT_H__
+
 #include <mutex>
 #include "ws_framedata.h"
 namespace dooqu_service
 {
 namespace basic
 {
-using namespace dooqu_service::basic;
-//enum dooqu_service::basic::ws_framedata::opcode;
 class ws_client
 {
   friend class ws_service;
 protected:
-
-
-
   virtual void set_error_code(unsigned short error_code) = 0;
   virtual std::recursive_mutex &get_send_mutex() = 0;
   virtual void set_avaiable(bool is_available) = 0;

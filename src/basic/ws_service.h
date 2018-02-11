@@ -2,14 +2,15 @@
 #define __WS_SERVICE_H__
 #include <functional>
 #include <cstring>
-#include "boost/asio.hpp"
+#include "boost/system/error_code.hpp"
+#include "boost/asio/io_service.hpp"
 namespace dooqu_service
 {
 namespace basic
 {
 class ws_client;
-
 typedef std::function<void(const boost::system::error_code&, const int status_code, const std::string&)> http_request_callback;
+
 class ws_service
 {
 public:

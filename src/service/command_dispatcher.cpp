@@ -38,7 +38,7 @@ int command_dispatcher::on_client_handshake(ws_client*, ws_request* req)
 	return 0;
 }
 
-void command_dispatcher::on_client_framedata(ws_client* client, dooqu_service::net::ws_framedata* framedata)
+void command_dispatcher::on_client_framedata(ws_client* client, dooqu_service::basic::ws_framedata* framedata)
 {
 	//std::string rep = ws_util::encode_to_utf8(L"我收到你的消息");
 	switch (framedata->opcode_)

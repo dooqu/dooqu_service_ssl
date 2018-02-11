@@ -8,10 +8,10 @@
 #include <mutex>
 #include <functional>
 #include <boost/asio.hpp>
-#include "ws_session.h"
 #include "../util/tick_count.h"
 #include "../util/utility.h"
 #include "../basic/ws_service.h"
+#include "ws_session.h"
 
 
 namespace dooqu_service
@@ -108,7 +108,7 @@ protected:
 public:
     tcp_server(unsigned int port);
 
-    io_service& get_io_service()
+    boost::asio::io_service& get_io_service()
     {
         return this->io_service_;
     };

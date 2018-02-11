@@ -1,12 +1,9 @@
 #include "game_plugin.h"
-#include "game_service.h"
-
 
 namespace dooqu_service
 {
 namespace service
 {
-
 game_plugin::game_plugin(ws_service* game_service, char* gameid, char* title, int capacity) :
     game_service_(game_service),
     update_timer_(this->game_service_->get_io_service()),

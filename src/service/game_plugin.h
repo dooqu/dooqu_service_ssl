@@ -8,7 +8,8 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/noncopyable.hpp>
 #include "command_dispatcher.h"
-#include "game_client.h"
+#include "../basic/ws_client.h"
+#include "../basic/ws_service.h"
 #include "game_zone.h"
 #include "http_request.h"
 #include "service_error.h"
