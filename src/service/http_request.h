@@ -34,13 +34,11 @@ public:
     boost::asio::streambuf response_;
     http_request_callback callback_func_;
 
-
     http_request(boost::asio::io_service& io_service,
                  const std::string& server, const std::string& path, http_request_callback callback_func)
         : resolver_(io_service),
           socket_(io_service),
           callback_func_(callback_func)
-
     {
         // Form the request. We specify the "Connection: close" header so that the
         // server will close the socket after transmitting the response. This will
@@ -219,17 +217,25 @@ private:
         }
         else
         {
-            boost::system::error_code no_error;
+            boost::system::error_code no_error;            
             this->callback_func_(no_error, 200);
         }
     }
 public:
     void read_response_content(string& reader)
     {
-        std::istream is(&response_);
-        std::ostringstream tmp;
-        tmp << is.rdbuf();
-        reader = tmp.str();
+        // std::istream is(&response_);
+        // std::ostringstream tmp;
+        // tmp << is.rdbuf();
+        // reader = tmp.str();    
+        boost::asio::streambuf::const_buffers_type cbt = response_.data();  
+        std::string s(boost::asio::buffers_begin(cbt), boost::asio::buffers_end(cbt));  
+        reader = s;        
+    }
+
+    boost::asio::streambuf& stream()
+    {
+        return this->response_;
     }
 };
 }

@@ -11,9 +11,8 @@ class ws_client
 {
   friend class ws_service;
 protected:
-  virtual void set_error_code(unsigned short error_code) = 0;
   virtual std::recursive_mutex &get_send_mutex() = 0;
-  virtual void set_avaiable(bool is_available) = 0;
+  virtual void set_available(bool is_available) = 0;
 
 public:
   virtual const char *id() = 0;
@@ -26,6 +25,7 @@ public:
   virtual void set_game_info(void *) = 0;
   virtual void *get_game_info() = 0;
   virtual unsigned short get_error_code() = 0;
+  virtual void set_error_code(unsigned short error_code) = 0;
   virtual std::recursive_mutex &get_recv_mutex() = 0;
   virtual bool is_availabled() = 0;
   virtual bool can_active() = 0;

@@ -1,6 +1,5 @@
 #include "command_dispatcher.h"
 
-
 namespace dooqu_service
 {
 namespace service
@@ -33,10 +32,12 @@ void command_dispatcher::simulate_client_data(ws_client* client, char* data)
 	this->on_client_data(client, data);
 }
 
+
 int command_dispatcher::on_client_handshake(ws_client*, ws_request* req)
 {
 	return 0;
 }
+
 
 void command_dispatcher::on_client_framedata(ws_client* client, dooqu_service::basic::ws_framedata* framedata)
 {
@@ -63,14 +64,14 @@ void command_dispatcher::on_client_framedata(ws_client* client, dooqu_service::b
 
 void command_dispatcher::on_client_data(ws_client* client, char* frame_data)
 {
-	//client->curr_dispatcher_thread_id_ = &std::this_thread::get_id();
+	// client->curr_dispatcher_thread_id_ = &std::this_thread::get_id();
 	command* client_command = ((command*)client->get_command());
 	client_command->reset(frame_data);
 	if (client_command->is_correct())
 	{
 		this->on_client_command(client, client_command);
 	}
-	//client->curr_dispatcher_thread_id_ = NULL;
+	// client->curr_dispatcher_thread_id_ = NULL;
 }
 
 

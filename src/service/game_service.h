@@ -52,7 +52,7 @@ class game_plugin;
 
 
 template<class SOCK_TYPE>
-class game_service : public command_dispatcher, protected async_task, public tcp_server<SOCK_TYPE>
+class game_service : public command_dispatcher, public async_task, public tcp_server<SOCK_TYPE>
 {
 public:
     typedef std::shared_ptr<game_session<SOCK_TYPE> > game_client_ptr;
@@ -79,6 +79,7 @@ protected:
     std::queue<void*> request_pool_[2];
     std::recursive_mutex request_pool_mutex_[2];
 
+    std::recursive_mutex mutex_temp_;
     std::queue<http_request_task*> task_queue_;
     std::recursive_mutex task_queue_mutex_;
 //    std::recursive_mutex update_tasks_mutex_;
@@ -100,7 +101,7 @@ protected:
     /*start functions*/
     void* malloc_http_request(int pool_index);
     void free_http_request(int pool_index, void* request);
-    void http_request_handle(const boost::system::error_code& err, const int status_code,  http_request* req, req_callback callback);
+    void http_request_handle(const boost::system::error_code& err, const int status_code,  void* req, req_callback callback);
     void queue_http_request_handle(const boost::system::error_code& err, const int status_code, http_request* req, req_callback callback);
     /*end_functions*/
     //非虚方法
@@ -122,7 +123,7 @@ public:
     virtual bool queue_http_request(const char* host, const char* path, req_callback callback);
     void post_handle(std:: function<void(void)> handle, int millisecs_delay, bool cancel_enable = false)
     {
-        return this->queue_task(handle, millisecs_delay, cancel_enable);
+        this->async_task::queue_task(handle, millisecs_delay, cancel_enable);
     }
     inline game_plugin_list* get_plugins()
     {
@@ -135,12 +136,14 @@ template<>
 inline game_service<tcp_stream>::game_service(unsigned int port) :
     tcp_server<tcp_stream>(port), async_task(this->get_io_service()), check_timeout_timer(get_io_service())
 {
+    std::cout << "game_service" << '\a' << std::endl;
 }
 
 template<>
 inline game_service<ssl_stream>::game_service(unsigned int port) :
     tcp_server<ssl_stream>(port), async_task(this->get_io_service()), check_timeout_timer(get_io_service())
 {
+        std::cout << "game_service" << '\a' << std::endl;
 }
 
 template<class SOCK_TYPE>
@@ -286,12 +289,13 @@ void game_service<SOCK_TYPE>::on_start()
     }
 
 	unsigned int obj_size = sizeof(http_request);
+    // void* block = malloc(obj_size * MAX_AUTH_SESSION_COUNT * 2);
     for(int i = 0; i < 2; i++)
     {
         request_block_[i] = malloc(obj_size * MAX_AUTH_SESSION_COUNT);
         for(int j = 0; j < MAX_AUTH_SESSION_COUNT; j++)
         {
-            this->request_pool_[i].push((void*)(&request_block_[i] + (j * obj_size)));
+            this->request_pool_[i].push((void*)(request_block_[i] + (j * obj_size)));
         }
     }
     //std::cout << "service_status:" << & service_status_ << std::endl;
@@ -346,6 +350,7 @@ void game_service<SOCK_TYPE>::on_stoped()
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::dispatch_bye(ws_client* client)
 {
+    std::cout << "dispatch bye" << std::endl;
     game_session<SOCK_TYPE>* game_client = (game_session<SOCK_TYPE>*)client;
     this->on_client_leave(client, game_client->get_error_code());
 }
@@ -388,7 +393,7 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_client_connected(ws_session<SOCK_TYPE>* t_client)
 {
     game_session<SOCK_TYPE>* client = (game_session<SOCK_TYPE>*)t_client;
-    client->set_avaiable(true);
+    client->set_available(true);
     //设置命令的监听者为当前service
     client->set_command_dispatcher(this);
     {
@@ -430,6 +435,7 @@ inline void game_service<SOCK_TYPE>::on_destroy_client(ws_session<SOCK_TYPE>* t_
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::system::error_code &error)
 {
+    return;
     if (!error && this->is_running_)
     {
         //如果禁用超时检测，请注释return;
@@ -476,7 +482,7 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
 template<class SOCK_TYPE>
 inline bool game_service<SOCK_TYPE>::queue_http_request(const char* host, const char* path, req_callback callback)
 {
-    //std::cout << "SO: queue" << std::endl;
+    std::cout << "queue http request" << std::endl;
     void* req_block = this->malloc_http_request(1);
     if(req_block != NULL)
     {
@@ -487,7 +493,7 @@ inline bool game_service<SOCK_TYPE>::queue_http_request(const char* host, const 
         return true;
     }
     else
-    {
+    {         
         void* task_chunk = memory_pool_malloc<http_request_task>();
         assert(task_chunk != NULL);
         http_request_task* req_task = new(task_chunk) http_request_task(host, path, callback);
@@ -503,7 +509,10 @@ inline void game_service<SOCK_TYPE>::queue_http_request_handle(const boost::syst
     //std::cout << err << std::endl;
     //std::cout << "SO queue handle" << std::endl;
     string response_content;
-    req->read_response_content(response_content);
+    if(!err && status_code == 200)
+    {
+        req->read_response_content(response_content);
+    }    
     callback(err, status_code, response_content);
     req->~http_request();
     this->free_http_request(1, req);
@@ -533,48 +542,49 @@ inline void game_service<SOCK_TYPE>::queue_http_request_handle(const boost::syst
 template<class SOCK_TYPE>
 inline bool game_service<SOCK_TYPE>::start_http_request(const char* host, const char* path, req_callback callback)
 {
-    void* req_block = this->malloc_http_request(0);
-
+    void* req_block = this->malloc_http_request(0); 
     if(req_block == NULL)
-        return false;
-
-    http_request* request = new(req_block) http_request(this->get_io_service(),
+    {
+        return false; 
+    }
+          
+    http_request* request = NULL;
+    request = new(req_block) http_request(this->get_io_service(),
             host,
             path,
-            std::bind(&game_service<SOCK_TYPE>::http_request_handle, this, std::placeholders::_1, std::placeholders::_2, (http_request*)req_block, callback));
-
+            std::bind(&game_service<SOCK_TYPE>::http_request_handle, this, std::placeholders::_1, std::placeholders::_2, req_block, callback));    
     return true;
 }
 
 template<class SOCK_TYPE>
-inline void game_service<SOCK_TYPE>::http_request_handle(const boost::system::error_code& err, const int status_code, http_request* req, req_callback callback)
+inline void game_service<SOCK_TYPE>::http_request_handle(const boost::system::error_code& err, const int status_code, void* req_block, req_callback callback)
 {
-    //std::cout << "SO start handle" << std::endl;
     string response_content;
-    req->read_response_content(response_content);
+    if(!err && status_code == 200)
+    {
+        http_request* req = (http_request*)req_block;
+        req->read_response_content(response_content);
+    }    
     callback(err, status_code, response_content);
-    req->~http_request();
-    this->free_http_request(0, req);
+    this->free_http_request(0, req_block);
 }
 
 template<class SOCK_TYPE>
 inline void* game_service<SOCK_TYPE>::malloc_http_request(int pool_index)
 {
-    ___lock___(this->request_pool_mutex_[pool_index], "game_service::mallock_http_request::request_pool_mutex_");
-
+    ___lock___(this->request_pool_mutex_[pool_index], "game_servcie::malloc_http_request::request_pool_mutex_");
     if(this->request_pool_[pool_index].empty())
         return NULL;
 
     void* req = this->request_pool_[pool_index].front();
-    this->request_pool_[pool_index].pop();
-
+    this->request_pool_[pool_index].pop();  
     return req;
 }
 
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::free_http_request(int pool_index, void* request)
 {
-    ___lock___(this->request_pool_mutex_[pool_index], "game_servcie::free_http_request::request_pool_mutex_");
+    ___lock___(this->request_pool_mutex_[pool_index], "game_servcie::free_http_request");
     this->request_pool_[pool_index].push(request);
 }
 
@@ -582,9 +592,44 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_session<SOCK_TYPE>* client, command* cmd)
 {
     const char* game_id = plugin->game_id();
-    req_callback f = std::bind(&game_service::end_auth, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, game_id, client);
-	
-    bool ret = this->start_http_request("127.0.0.1", "/", f);
+	std::shared_ptr<game_session<SOCK_TYPE>> self = client->shared_from_self();
+    bool ret = this->start_http_request("service.wechat.dooqu.com", "/", 
+    [self, this, game_id](const boost::system::error_code& error, const int status_code, const std::string& response_string)
+    {
+        if(!error && status_code == 200)
+        {
+            game_session<SOCK_TYPE>* client = self.get();
+            ___lock___(client->recv_lock_, "end_auth::commander_mutex");
+            {
+                if(client->available() == false)
+                    return;
+                //上锁检查，因为plugin有可能已经被卸载
+                ___lock___(this->plugins_mutex_, "game_service::end_auth::plugin_mutex");
+                {
+                    unsigned short ret = service_error::NO_ERROR;
+                    //检查当前要登录的plugin是否还有效
+                    game_plugin_map::iterator finder = this->plugins_.find(game_id);
+                    if(finder != this->plugins_.end())
+                    {
+                        ret = (*finder).second->auth_client(self.get(), response_string);
+                    }
+                    else
+                    {
+                        ret = service_error::GAME_NOT_EXISTED;
+                    }
+
+                    if(ret != service_error::NO_ERROR)
+                    {
+                        self->disconnect(ret, NULL);
+                    }
+                }
+            }
+        }
+        else
+        {
+            self->disconnect((unsigned short)service_error::LOGIN_SERVICE_ERROR, NULL);
+        }
+    });
 
     if(ret == false)
     {

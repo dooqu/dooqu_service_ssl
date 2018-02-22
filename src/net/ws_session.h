@@ -150,7 +150,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 	//开始从客户端读取数据
 	void read_from_client()
 	{
-	this->socket_.async_read_some(boost::asio::buffer(this->frame_data_.data, ws_framedata::BUFFER_SIZE),
+		this->socket_.async_read_some(boost::asio::buffer(this->frame_data_.data, ws_framedata::BUFFER_SIZE),
 								  std::bind(&ws_session<SOCK_TYPE>::on_data_received, shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
@@ -229,7 +229,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 		}
 		else
 		{
-			//___lock___(this->recv_lock_, "ws_client::on_data_received");
+			this->set_available(false);
 			this->on_error(dooqu_service::net::service_error::WS_ERROR_NORMAL_CLOSURE);
 		}
 	}
@@ -398,7 +398,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 		return this->socket_;
 	}
 
-	void set_avaiable(bool is_avaibled)
+	void set_available(bool is_avaibled)
 	{
 		this->available_ = is_avaibled;
 	}

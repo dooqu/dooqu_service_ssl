@@ -53,16 +53,19 @@ public:
             frame.state_ = ws_framedata::mask_and_payload_len_ok;
 
         case ws_framedata::mask_and_payload_len_ok:
-            if (frame.mask_ != 1)
+            if (frame.mask_ == 1)
             {
-                return framedata_error;
+                if (frame.pos_ + 4 > data_len)
+                {
+                    return framedata_indeterminate;
+                }
+                fetch_masking_key(frame);
+                frame.pos_ += 4;                
             }
-            if (frame.pos_ + 4 > data_len)
+            else
             {
-                return framedata_indeterminate;
+                //return framedata_error;
             }
-            fetch_masking_key(frame);
-            frame.pos_ += 4;
             frame.data_pos_ = frame.pos_;
             frame.state_ = ws_framedata::mask_key_ok;
 

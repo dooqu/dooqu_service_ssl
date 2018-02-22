@@ -140,19 +140,15 @@ void game_plugin::on_client_command(ws_client* client, command* command)
         client->disconnect((uint16_t)service_error::CONSTANT_REQUEST, "CONSTANT REQUEST");
         return;
     }
-
     command_dispatcher::on_client_command(client, command);
 
     {
-        using namespace dooqu_service::net;
-        /*编译暂时
-        thread_status_map::iterator curr_thread_pair = this->game_service_->threads_status()->find(std::this_thread::get_id());
-
-        if (curr_thread_pair != this->game_service_->threads_status()->end())
-        {
-            curr_thread_pair->second->restart();
-        }
-        */
+        using namespace dooqu_service::net;        
+        // thread_status_map::iterator curr_thread_pair = this->game_service_->threads_status()->find(std::this_thread::get_id());
+        // if (curr_thread_pair != this->game_service_->threads_status()->end())
+        // {
+        //     curr_thread_pair->second->restart();
+        // }        
     }
 }
 
@@ -246,7 +242,10 @@ void game_plugin::remove_client_from_plugin(ws_client* client)
     }
 
     this->on_client_leave(client, client->get_error_code());
-    ((command_dispatcher*)this->game_service_)->dispatch_bye(client);
+
+    command_dispatcher* dispatcher = dynamic_cast<command_dispatcher*>(this->game_service_);
+    dispatcher->dispatch_bye(client);
+    //(this->game_service_)->dispatch_bye(client);
 }
 
 
@@ -268,6 +267,7 @@ void game_plugin::remove_client(ws_client* client)
 
 void game_plugin::queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled = false)
 {
+    std::cout << "game_plugin::queue_task" << std::endl;
     this->game_service_->post_handle(callback_handle, delay_duration, cancel_enabled);
 }
 
