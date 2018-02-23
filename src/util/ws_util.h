@@ -155,7 +155,7 @@ public:
 		std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 		std::wstring rep = conv.from_bytes(begin, end);
 
-		std::wcout << "content:" << rep << std::endl;
+		//std::wcout << "content:" << rep << std::endl;
 	}
 
 	static unsigned short get_int16_from_net_buf(char* error_buf)

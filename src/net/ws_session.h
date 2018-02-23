@@ -186,13 +186,15 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 					{
 						this->on_frame_data(&frame_data_);
 					}
-
+					
 					//粘包，继续解析
 					if (frame_data_.pos_ < frame_data_.length)
 					{
+						std::cout << "数据粘包，继续解析" << std::endl;
+						frame_data_.length = 0 ;
+						frame_data_.state_ = ws_framedata::ready;						
 						continue;
 					}
-					//整包处理完毕，重置，继续读取
 					frame_data_.reset();
 				}
 				else if (result == framedata_indeterminate)
@@ -208,6 +210,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 					}
 					else
 					{
+						std::cout << "半包数据移动" << std::endl;
 						//半包数据向前移动
 						frame_data_.length = frame_data_.length - frame_data_.start_pos_;
 						memcpy(frame_data_.data, &frame_data_.data[frame_data_.start_pos_], frame_data_.length);
@@ -371,6 +374,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 		}
 		else
 		{
+			std::cout << "WRITE:" << curr_buffer->read() + curr_buffer->pos_start + 2 << std::endl;
 			//if not error and has remain buffers to send,then continue.
 			buffer_stream *curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 			boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
@@ -468,7 +472,9 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 		buffer_stream *curr_buffer = NULL;
 
 		___lock___(this->send_lock_, "ssl_connection::write::send_buffer_lock_");
-		if (this->alloc_available_buffer(&curr_buffer) == false)
+		bool ret = this->alloc_available_buffer(&curr_buffer);
+		assert(ret == true);
+		if (ret == false)
 		{
 			return;
 		}
@@ -481,6 +487,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 			va_end(arg_ptr);
 
 			//-1是出错了， 有可能回一直返回-1,不是长度问题，造成死循环
+			assert(bytes_writed >= 0);
 			if (bytes_writed > 0)
 			{
 				break;
@@ -507,6 +514,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 		{
 			//只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
 			++read_pos_;
+			std::cout << "WRITE:" << (curr_buffer->read(curr_buffer->pos_start + 2)) << std::endl;
 			boost::asio::async_write(this->socket_, boost::asio::buffer(curr_buffer->read() + curr_buffer->pos_start, curr_buffer->size()),
 									 std::bind(&ws_session<SOCK_TYPE>::write_handle, shared_from_this(), std::placeholders::_1));
 		}

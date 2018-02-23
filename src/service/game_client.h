@@ -11,8 +11,6 @@
 #include "../util/tick_count.h"
 #include "post_monitor.h"
 
-
-
 using namespace dooqu_service::net;
 using namespace boost::asio;
 
@@ -204,7 +202,7 @@ protected:
 
 	virtual void on_frame_data(ws_framedata* frame)
 	{
-		std::cout << "on_frame_data" << std::endl;
+		std::cout << "RECV:" << &frame->data[frame->data_pos_] << std::endl; 
 		if (this->command_dispatcher_ != NULL)
 		{
 			this->command_dispatcher_->on_client_framedata(this, frame);

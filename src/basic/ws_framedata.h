@@ -18,6 +18,13 @@ struct ws_framedata
         PONG = 0xa
     };
 
+    #define OPCODE_CONTINUATION ws_framedata::opcode::CONTINUATION;
+    #define OPCODE_TEXT ws_framedata::opcode::TEXT;
+    #define OPCODE_BINARY ws_framedata::opcode::BINARY;
+    #define OPCODE_CLOSE ws_framedata::opcode::CLOSE;
+    #define OPCODE_PING ws_framedata::opcode::PING;
+    #define OPCODE_PONG ws_framedata::opcode::PONG;
+
     enum
     {
         BUFFER_SIZE = 1024
@@ -82,6 +89,7 @@ struct ws_framedata
         return &this->data[this->data_pos_] + this->payload_length_;
     }
 };
+
 }
 }
 #endif

@@ -126,16 +126,16 @@ public:
             frame.payload_length_ = ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
             frame.pos_ += 2;
 
-            std::cout << "126:payload_length:" << frame.payload_length_ << std::endl;
+            //std::cout << "126:payload_length:" << frame.payload_length_ << std::endl;
         }
         else if (frame.payload_length_ == 127)
         {
             frame.payload_length_ = ws_util::get_int64_from_net_buf(frame.data + frame.pos_);
             frame.pos_ += 8;
-            std::cout << "127:payload_length:" << frame.payload_length_ << std::endl;
+            //std::cout << "127:payload_length:" << frame.payload_length_ << std::endl;
         }
 
-        std::cout << "payload_length: " << frame.payload_length_ << std::endl;
+        //std::cout << "payload_length: " << frame.payload_length_ << std::endl;
         return 0;
     }
 
