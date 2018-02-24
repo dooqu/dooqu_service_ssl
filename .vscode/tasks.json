@@ -14,7 +14,6 @@
                 "-fpermissive",
                 "-std=c++11",
                 "-c",
-                "${workspaceFolder}/src/basic/*.h",
                 "${workspaceFolder}/src/net/*.cpp",
                 "${workspaceFolder}/src/util/*.cpp",
                 "${workspaceFolder}/src/service/*.cpp"

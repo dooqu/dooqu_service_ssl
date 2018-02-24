@@ -53,6 +53,7 @@ protected:
         dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
     }
 
+
     void start_accept()
     {
         ws_session<SOCK_TYPE>* client = this->on_create_client(); 
