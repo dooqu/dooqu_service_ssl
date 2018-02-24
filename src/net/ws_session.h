@@ -32,12 +32,11 @@ template<class SOCK_TYPE>
 class ws_server;
 
 template <class SOCK_TYPE>
-class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, public ws_client, boost::noncopyable
+class ws_session : public ws_client, public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, boost::noncopyable
 {
+	typedef std::shared_ptr<ws_session<SOCK_TYPE>> ws_session_ptr;
 	friend class ws_server<SOCK_TYPE>;
-
   public:
-	typedef std::shared_ptr<ws_session<SOCK_TYPE>> ws_client_ptr;
 	enum
 	{
 		MAX_BUFFER_SIZE = 128,
@@ -101,7 +100,7 @@ class ws_session : public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, p
 
 	void ws_handshake_read_handle(const boost::system::error_code &error, size_t bytes_received)
 	{
-		ws_client_ptr self = shared_from_this();
+		ws_session_ptr self = shared_from_this();
 		if (!error)
 		{
 			request_.content_size += bytes_received;
@@ -591,7 +590,7 @@ inline ws_session<ssl_stream>::ws_session(io_service &ios, boost::asio::ssl::con
 template <>
 inline void ws_session<ssl_stream>::start()
 {
-	ws_client_ptr self = shared_from_this();
+	ws_session_ptr self = shared_from_this();
 	socket_.async_handshake(
 		boost::asio::ssl::stream_base::server,
 		[this, self](const boost::system::error_code &error) {
@@ -615,7 +614,7 @@ inline void ws_session<ssl_stream>::async_close()
 {
 	//___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
 	boost::system::error_code err_code;
-	ws_client_ptr self = shared_from_this();
+	ws_session_ptr self = shared_from_this();
 	this->socket().async_shutdown([this, self](const boost::system::error_code &error) {
 		this->socket().lowest_layer().close();
 	});

@@ -17,7 +17,7 @@
 #include "service_error.h"
 #include "async_task.h"
 #include "http_request.h"
-#include "game_client.h"
+#include "game_session.h"
 #include "game_plugin.h"
 
 using namespace boost::asio;
@@ -55,11 +55,12 @@ template<class SOCK_TYPE>
 class game_service : public command_dispatcher, public async_task, public tcp_server<SOCK_TYPE>
 {
 public:
-    typedef std::shared_ptr<game_session<SOCK_TYPE> > game_client_ptr;
+    typedef std::shared_ptr<ws_session<SOCK_TYPE> > ws_session_ptr;
+    typedef std::shared_ptr<game_session<SOCK_TYPE> > game_session_ptr;
     typedef std::map<const char*, game_plugin*, char_key_op> game_plugin_map;
     typedef std::list<game_plugin*> game_plugin_list;
     typedef std::map<const char*, game_zone*, char_key_op> game_zone_map;
-    typedef std::set<game_client_ptr> game_client_map;
+    typedef std::set<ws_session_ptr> game_client_map;
 
 protected:
     enum { MAX_AUTH_SESSION_COUNT = 50 };
@@ -319,7 +320,7 @@ void game_service<SOCK_TYPE>::on_stop()
         for (typename game_client_map::iterator curr_client = this->clients_.begin();
                 curr_client != this->clients_.end(); ++curr_client)
         {
-            game_client_ptr client = (*curr_client);
+            ws_session_ptr client = (*curr_client);
             client->disconnect((uint16_t)service_error::WS_ERROR_GOING_AWAY, NULL);
         }
     }
@@ -350,7 +351,6 @@ void game_service<SOCK_TYPE>::on_stoped()
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::dispatch_bye(ws_client* client)
 {
-    std::cout << "dispatch bye" << std::endl;
     game_session<SOCK_TYPE>* game_client = (game_session<SOCK_TYPE>*)client;
     this->on_client_leave(client, game_client->get_error_code());
 }
@@ -399,7 +399,7 @@ inline void game_service<SOCK_TYPE>::on_client_connected(ws_session<SOCK_TYPE>* 
     {
 		___lock___(this->clients_mutex_, "game_service::on_client_join");
         //在登录用户组中注册
-        this->clients_.insert(client->shared_from_self());
+        this->clients_.insert(t_client->shared_from_this());
     }//对用户组上锁
 
     client->active();
@@ -414,7 +414,7 @@ inline void game_service<SOCK_TYPE>::on_client_leave(game_session<SOCK_TYPE>* cl
     client->set_command_dispatcher(NULL);
     {
         ___lock___(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
-        this->clients_.erase(client->shared_from_self());
+        this->clients_.erase(client->shared_from_this());
     }
 }
 
@@ -446,7 +446,7 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
             for (typename game_client_map::iterator curr_client = this->clients_.begin();
                     curr_client != this->clients_.end(); ++curr_client)
             {
-                game_client_ptr client = (*curr_client);
+                game_session_ptr client = ((game_session<SOCK_TYPE>*)(*curr_client).get())->get_shared_ptr();
                 if (client->command_dispatcher_ == this && client->actived_time_elapsed() > 5 * 1000)
                 {
                     uint16_t ret = service_error::TIME_OUT;
@@ -560,12 +560,14 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::http_request_handle(const boost::system::error_code& err, const int status_code, void* req_block, req_callback callback)
 {
     string response_content;
+    http_request* req = NULL;
     if(!err && status_code == 200)
     {
-        http_request* req = (http_request*)req_block;
+        req = (http_request*)req_block;
         req->read_response_content(response_content);
     }    
     callback(err, status_code, response_content);
+    req->~http_request();
     this->free_http_request(0, req_block);
 }
 
@@ -592,13 +594,13 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_session<SOCK_TYPE>* client, command* cmd)
 {
     const char* game_id = plugin->game_id();
-	std::shared_ptr<game_session<SOCK_TYPE>> self = client->shared_from_self();
+	ws_session_ptr self = client->shared_from_this();
     bool ret = this->start_http_request("service.wechat.dooqu.com", "/", 
     [self, this, game_id](const boost::system::error_code& error, const int status_code, const std::string& response_string)
     {
         if(!error && status_code == 200)
         {
-            game_session<SOCK_TYPE>* client = self.get();
+            game_session<SOCK_TYPE>* client = (game_session<SOCK_TYPE>*)self.get();
             ___lock___(client->recv_lock_, "end_auth::commander_mutex");
             {
                 if(client->available() == false)
@@ -649,7 +651,7 @@ inline void game_service<SOCK_TYPE>::end_auth(const boost::system::error_code& c
     {
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
         ___lock___(this->clients_mutex_, "game_service::end_auth::clients_mutex");
-        if(this->clients_.find(client->shared_from_self()) != this->clients_.end())
+        if(this->clients_.find(client->shared_from_this() != this->clients_.end()))
             return;
     }
 

@@ -30,7 +30,7 @@ typedef std::vector<std::thread*> worker_threads;
 template<class SOCK_TYPE>
 class tcp_server : public ws_service, boost::noncopyable
 {
-typedef std::shared_ptr<ws_session<SOCK_TYPE>> ws_client_ptr;
+typedef std::shared_ptr<ws_session<SOCK_TYPE>> ws_session_ptr;
 protected:
     enum { MAX_ACCEPTION_NUM = 4 };
     io_service io_service_;
@@ -57,7 +57,7 @@ protected:
     void start_accept()
     {
         ws_session<SOCK_TYPE>* client = this->on_create_client(); 
-        ws_client_ptr new_client(client, std::bind(&tcp_server<SOCK_TYPE>::on_destroy_client, this, client));
+        ws_session_ptr new_client(client, std::bind(&tcp_server<SOCK_TYPE>::on_destroy_client, this, client));
         this->acceptor.async_accept(client->socket().lowest_layer(), 
         [this, new_client](const boost::system::error_code& error) 
         {

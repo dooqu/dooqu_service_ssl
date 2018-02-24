@@ -30,7 +30,7 @@ class game_session : public ws_session<SOCK_TYPE>
 	friend class command_dispatcher;
 	friend class game_service<SOCK_TYPE>;
 
-	typedef std::shared_ptr<game_session<SOCK_TYPE>> game_client_ptr;
+	typedef std::shared_ptr<game_session<SOCK_TYPE>> game_session_ptr;
 private:
 	void simulate_command_process(char *command_data)
 	{
@@ -209,7 +209,7 @@ protected:
 		}
 	}
 
-	std::shared_ptr<game_session<SOCK_TYPE>> shared_from_self()
+	virtual std::shared_ptr<game_session<SOCK_TYPE>> get_shared_ptr()
 	{
 		return std::dynamic_pointer_cast<game_session<SOCK_TYPE>>(shared_from_this());
 	}
