@@ -192,11 +192,10 @@ void game_plugin::unload()
         this->update_timer_.cancel();
         this->on_unload();
 
-        for_each_client([this](ws_client* client)
+        for_each_client([](ws_client* client)
         {
             unsigned short ret = service_error::WS_ERROR_GOING_AWAY;
-            char* reason = NULL;
-            this->game_service_->post_handle(std::bind(static_cast<void(ws_client::*)(unsigned short, char*)>(&ws_client::disconnect), client, ret, reason));
+            client->disconnect(ret, NULL);
         });
 
         while(this->clients_count() > 0)

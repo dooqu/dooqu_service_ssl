@@ -62,6 +62,8 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 
 	unsigned short error_frame_sended_;
 	unsigned short error_frame_recved_;
+
+	tick_count error_frame_send_time_;
 	//接收握手数据的缓冲区，指向ws_framedata内的buffer
 	char *recv_buffer;
 	//io_service对象
@@ -141,8 +143,8 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 
 		const char *bad_request_400 = "HTTP/1.1 400 Bad Request\r\n\r\n";
 		boost::asio::async_write(this->socket_, boost::asio::buffer(bad_request_400, strlen(bad_request_400)),
-								 [this, self](const boost::system::error_code &error, size_t bytes_sended) {
-									 //___lock___(this->recv_lock_, "handshake");
+								 [this, self](const boost::system::error_code &error, size_t bytes_sended) 
+								 {
 									 this->on_error(dooqu_service::net::service_error::WS_HANDSHAKE_ERROR);
 								 });
 	}
@@ -267,6 +269,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 				}
 			}
 		}
+		return false;
 
 		_label_mode_1:
 		{
@@ -356,6 +359,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		buffer_stream *curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 		if (curr_buffer->is_error_frame())
 		{
+			this->error_frame_send_time_.restart();
 			___lock___(this->recv_lock_, "ssl_connection::send_handle::send_buffer_lock_");
 			this->error_frame_sended_ = 2;
 			if (this->error_frame_recved_ == 1)
@@ -537,7 +541,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 	void async_close()
 	{
 		boost::system::error_code err_code;
-		this->socket().shutdown(boost::asio::socket_base::shutdown_both);
+		this->socket().shutdown(boost::asio::socket_base::shutdown_both, err_code);
 		this->socket().close();
 	}
 };

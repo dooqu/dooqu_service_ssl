@@ -33,11 +33,13 @@ public:
     boost::asio::streambuf request_;
     boost::asio::streambuf response_;
     http_request_callback callback_func_;
+    boost::asio::deadline_timer timer_;
 
     http_request(boost::asio::io_service& io_service,
                  const std::string& server, const std::string& path, http_request_callback callback_func)
         : resolver_(io_service),
           socket_(io_service),
+          timer_(io_service),
           callback_func_(callback_func)
     {
         // Form the request. We specify the "Connection: close" header so that the
@@ -57,16 +59,31 @@ public:
                                 boost::bind(&http_request::handle_resolve, this,
                                             boost::asio::placeholders::error,
                                             boost::asio::placeholders::iterator));
+        timer_.expires_from_now(boost::posix_time::milliseconds(3000));
+        timer_.async_wait([this](const boost::system::error_code& error)
+        {
+            if(!error)
+            {
+                std::cout << "resolve timeout, canceled." << std::endl;
+                this->resolver_.cancel();
+            }
+            else
+            {
+                std::cout << "resolve_timer is canceled." << std::endl;
+            }
+        });
     }
 
     virtual ~http_request()
     {
+        std::cout << "~http_request" << std::endl;
     }
 
 private:
     void handle_resolve(const boost::system::error_code& err,
                         tcp::resolver::iterator endpoint_iterator)
     {
+        timer_.cancel();
         if (!err)
         {
             // Attempt a connection to each endpoint in the list until we
@@ -74,18 +91,31 @@ private:
             boost::asio::async_connect(socket_, endpoint_iterator,
                                        boost::bind(&http_request::handle_connect, this,
                                                    boost::asio::placeholders::error));
+            timer_.expires_from_now(boost::posix_time::milliseconds(5000));
+            timer_.async_wait([this](const boost::system::error_code& error)
+            {
+                if(!error)
+                {
+                    std::cout << "connect time out, close connection." << std::endl;
+                    boost::system::error_code err;
+                    this->socket_.close(err);
+                }
+                else
+                {
+                    std::cout << "connect_timer is canceled." << std::endl;
+                }
+            });
         }
         else
         {
-
-            std::cout << "Error: " << err.message() << "\n";
+            std::cout << "Resolve error: " << err.message() << "\n";
             this->callback_func_(err, 0);
-            //delete this;
         }
     }
 
     void handle_connect(const boost::system::error_code& err)
     {
+        timer_.cancel();
         if (!err)
         {
             // The connection was successful. Send the request.
@@ -95,10 +125,8 @@ private:
         }
         else
         {
-            std::cout << "Error: " << err.message() << "\n";
+            std::cout << "Connect error: " << err.message() << "\n";
             this->callback_func_(err, 0);
-            //delete this;
-            //boost::singleton_pool<http_request<game_service>, sizeof(http_request<game_service>)>::free(this);
         }
     }
 
@@ -112,12 +140,21 @@ private:
             boost::asio::async_read_until(socket_, response_, "\r\n",
                                           boost::bind(&http_request::handle_read_status_line, this,
                                                   boost::asio::placeholders::error));
+            
+            timer_.expires_from_now(boost::posix_time::milliseconds(5000));
+            timer_.async_wait([this](const boost::system::error_code& error)
+            {
+                if(!error)
+                {
+                    boost::system::error_code err;
+                    this->socket_.close(err);
+                }
+            });
         }
         else
         {
-            std::cout << "Error: " << err.message() << "\n";
+            std::cout << "Write error: " << err.message() << "\n";
             this->callback_func_(err, 0);
-            //delete this;
         }
     }
 
@@ -134,15 +171,12 @@ private:
             std::string status_message;
             std::getline(response_stream, status_message);
 
-
             if (!response_stream || http_version.substr(0, 5) != "HTTP/")
             {
                 std::cout << "Invalid response\n";
                 this->callback_func_(err, 400);
-                //delete this;
                 return;
             }
-
 
             if (status_code != 200)
             {
@@ -151,7 +185,6 @@ private:
                 this->callback_func_(err, status_code);
                 return;
             }
-
 
             // Read the response headers, which are terminated by a blank line.
             boost::asio::async_read_until(socket_, response_, "\r\n\r\n",
@@ -162,7 +195,6 @@ private:
         {
             std::cout << "Error: " << err << "\n";
             this->callback_func_(err, 0);
-            //delete this;
         }
     }
 
@@ -177,12 +209,6 @@ private:
             while (std::getline(response_stream, header) && header != "\r")
             {
             }
-            //	std::cout << header << "\n";
-            //std::cout << "\n";
-
-            // Write whatever content we already have to output.
-            //if (response_.size() > 0)
-            //	std::cout << &response_;
 
             // Start reading remaining data until EOF.
             boost::asio::async_read(socket_, response_,
@@ -194,7 +220,6 @@ private:
         {
             std::cout << "Error: " << err << "\n";
             this->callback_func_(err, 0);
-            //delete this;
         }
     }
 
@@ -217,6 +242,7 @@ private:
         }
         else
         {
+            timer_.cancel();
             boost::system::error_code no_error;            
             this->callback_func_(no_error, 200);
         }

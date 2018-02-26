@@ -202,7 +202,7 @@ protected:
 
 	virtual void on_frame_data(ws_framedata* frame)
 	{
-		//std::cout << "RECV:" << &frame->data[frame->data_pos_] << std::endl; 
+		this->active();
 		if (this->command_dispatcher_ != NULL)
 		{
 			this->command_dispatcher_->on_client_framedata(this, frame);

@@ -158,14 +158,14 @@ public:
             {
                 //����ǹر�֡��ͬʱ��payload����������˹رյ�code��reason
                 frame.code = dooqu_service::util::ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
-                std::cout << "close code:" << frame.code << std::endl;
+                //std::cout << "close code:" << frame.code << std::endl;
 
                 //fill the close reason.
                 if (frame.payload_length_ > 2)
                 {
                     frame.data[frame.data_pos_ + frame.payload_length_] = 0;
                     frame.reason = &frame.data[frame.data_pos_ + 2];
-                    std::cout << "close reason:" << frame.reason << std::endl;
+                    //std::cout << "close reason:" << frame.reason << std::endl;
                 }
             }
         }

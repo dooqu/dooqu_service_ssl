@@ -25,7 +25,7 @@ namespace dooqu_service
 			static const unsigned short DATA_OUT_OF_BUFFER = 1009;
 			static const unsigned short SERVER_CLOSEING = 1001;
 			static const unsigned short SSL_HANDSHAKE_ERROR = 1002;
-			static const unsigned short WS_HANDSHAKE_ERROR = 1009;
+			static const unsigned short WS_HANDSHAKE_ERROR = 1002;
 		};
 	}
 }
