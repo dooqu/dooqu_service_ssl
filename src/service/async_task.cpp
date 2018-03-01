@@ -14,6 +14,8 @@ async_task::~async_task()
     assert(this->working_timers_.size() == 0);
     memory_pool_purge<task_timer>();
 }
+
+
 //启动一个指定延时的回调操作，因为timer对象要频繁的实例化，所以采用deque的结构对timer对象进行池缓冲
 //queue_task会从deque的头部弹出有效的timer对象，用完后，从新放回的头部，这样deque头部的对象即为活跃timer
 //如timer对象池中后部的对象长时间未被使用，说明当前对象被空闲，可以回收。
@@ -66,7 +68,7 @@ async_task::task_timer* async_task::queue_task(std::function<void(void)> callbac
 }
 
 
-//能够cancel的task，一定不能回收利用，无法解决“轮回”问题；
+//能够独立cancel的task，一定不能回收利用，无法解决“轮回”问题，因为你cancel的可能不是同“代”的任务；
 bool async_task::cancel_task(task_timer* timer)
 {
     if(timer == NULL || timer->is_cancel_eanbled() == false)
@@ -83,10 +85,11 @@ void async_task::cancel_all_task()
     for(std::set<task_timer*>::iterator e = this->working_timers_.begin();
             e != this->working_timers_.end(); ++ e)
     {
-        (*e)->cancel();
+        boost::system::error_code err_code;
+        (*e)->cancel(err_code);
     }
 
-    printf("end cancel all task\n");
+    std::cout << "all async task canceled." << std::endl;
 }
 //queue_task的内置回调函数
 //1、判断回调状态
@@ -128,7 +131,7 @@ void async_task::task_handle(const boost::system::error_code& error, task_timer*
         printf("task_handle: pool_size(%d), working_size(%d)\n", pool_size, working_size);
     }
 
-    if (!error)
+    if (!error && can_do())
     {
         callback_handle();        //返回不执行后续逻辑
     }

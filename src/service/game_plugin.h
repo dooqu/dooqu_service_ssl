@@ -146,14 +146,36 @@ public:
         return this->frequence_;
     }
 
-    virtual void config(plugin_config_map& configs)
+    ws_service* get_game_service()
     {
-        printf("base config");
+        return this->game_service_;
     }
 
-    void broadcast(char* message, bool asynchronized = true);
+    virtual void config(plugin_config_map& configs)
+    {
+    }
+
+    ///setting a callback function with every ws_client in curent plugin.
+    ///
+    ///in the for_each_client function, it lock the mutex.
+    ///
+    ///for_each_client([](ws_client* client){ client.write_frame(); });
     void for_each_client(std::function<void(ws_client*)> client_func);
+
+
+    ///setting a callback function with clients find.
+    ///
+    ///in the for_each_client function, it lock the mutex.
+    ///
+    ///find_client("client_0", [](ws_client* client){ client->write_frame(); });
     bool find_client(const char* client_id, std::function<void(ws_client*)> client_func);
+
+
+    ///setting a callback function with clients find.
+    ///
+    ///in the for_each_client function, it lock the mutex.
+    ///
+    ///find_client("client_0", [](ws_client* client){ client->write_frame(); });   
     ws_client* find_client_nolock(const char* client_id);
 };
 }

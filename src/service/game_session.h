@@ -79,7 +79,8 @@ protected:
 			}
 			if (this->command_dispatcher_ != NULL)
 			{
-				this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->command_dispatcher_, this));
+				//this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->command_dispatcher_, this));
+				this->command_dispatcher_->dispatch_bye(this);
 			}
 		}
 	}
@@ -217,10 +218,12 @@ protected:
 	void disconnect(unsigned short code, char *reason)
 	{
 		___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
-		// if (this->available())
-		this->available_ = false;
-		this->error_code_ = code;
-		this->write_error(code, reason);
+		if(this->is_availabled())
+		{
+			this->available_ = false;
+			this->error_code_ = code;
+			this->write_error(code, reason);
+		}
 	}
 };
 
@@ -258,46 +261,6 @@ inline game_session<ssl_stream>::game_session(io_service& ios, boost::asio::ssl:
 	this->message_monitor_.init(5, 4000);
 	this->active_monitor_.init(30, 60 * 1000);
 }
-
-
-//on_error的主要功能是将用户的离开和逻辑错误动作传递给command_dispatcher对象进行依次处理。
-//error_code_的初始默认值为CLIENT_NET_ERROR；
-//如果这个值被改动，说明在on_error之前、调用过disconnect、并传递过断开的原因；
-//这样在tcp_client的断开处理中、即使传递0，也不会被赋值；
-/*
-template<class SOCK_TYPE>
-void game_session<SOCK_TYPE>::on_error(const int error)
-{
-	assert(this->command_dispatcher_ != NULL);
-	if (this->is_error_ == false)
-	{
-		this->is_error_ = true;
-
-		if (this->error_code_ == service_error::NO_ERROR)
-		{
-			this->error_code_ = error;
-		}
-		if (this->command_dispatcher_ != NULL)
-		{
-			this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->command_dispatcher_, this));
-		}
-	}
-}
-
-
-template<class SOCK_TYPE>
-void game_session<SOCK_TYPE>::disconnect(unsigned short code, char* reason)
-{
-	___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
-	// if (this->available())
-	{
-		this->available_ = false;
-		this->error_code_ = code;
-		this->write_error(code, "reason is");
-	}
-}
-*/
-
 
 }
 }

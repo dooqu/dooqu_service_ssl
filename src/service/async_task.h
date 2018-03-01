@@ -43,7 +43,6 @@ public:
             {
                 timer->~task_timer();
                 boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer);
-                //memory_pool_free<task_timer>(timer);
             }
         }
 
@@ -90,6 +89,7 @@ protected:
 
     void task_handle(const boost::system::error_code& error, task_timer* timer_, std::function<void(void)> callback_handle);
 
+    virtual bool can_do() = 0;
 };
 }
 }

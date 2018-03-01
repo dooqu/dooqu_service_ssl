@@ -33,24 +33,35 @@ class tcp_server : public ws_service, boost::noncopyable
 typedef std::shared_ptr<ws_session<SOCK_TYPE>> ws_session_ptr;
 protected:
     enum { MAX_ACCEPTION_NUM = 4 };
+    enum {STATE_STOP = 0, STATE_RUNNING = 1, STATE_STOP_PENDING = 2} state_;
     io_service io_service_;
     io_service::work* work_mode_;
-    tcp::acceptor acceptor;
+    
     unsigned int port_;
-    bool is_running_;
-    bool is_accepting_;
-    thread_status_map threads_status_;
-    worker_threads worker_threads_;
-    std::thread::id service_thread_id_;
-    boost::asio::ssl::context context_;
 
-    void create_worker_thread()
+    tcp::acceptor acceptor;
+    bool is_accepting_;
+
+    //fill all worker thread's tick_count.
+    thread_status_map threads_status_;
+
+    //fill all the worker thread.
+    worker_threads worker_threads_;
+
+    //service 's createor thread.
+    std::thread::id service_thread_id_;
+
+    //ssl context
+    boost::asio::ssl::context context_;
+    boost::system::error_code err_;
+
+    void create_worker_thread(const boost::system::error_code& err_code)
     {
-        std::thread* worker_thread = new std::thread(std::bind(static_cast<size_t(io_service::*)()>(&io_service::run), &this->io_service_));
+        std::thread* worker_thread = new std::thread(std::bind(static_cast<size_t(io_service::*)(boost::system::error_code&)>(&io_service::run), &this->io_service_, err_code));
         this->threads_status_[worker_thread->get_id()] = new tick_count();
         service_status::instance()->init(worker_thread->get_id());
         worker_threads_.push_back(worker_thread);
-        dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
+        std::cout << "create worker thread =>" << worker_thread->get_id() << std::endl;
     }
 
 
@@ -58,12 +69,12 @@ protected:
     {
         ws_session<SOCK_TYPE>* client = this->on_create_client(); 
         ws_session_ptr new_client(client, std::bind(&tcp_server<SOCK_TYPE>::on_destroy_client, this, client));
-        this->acceptor.async_accept(client->socket().lowest_layer(), 
+        this->acceptor.async_accept(client->socket(), 
         [this, new_client](const boost::system::error_code& error) 
         {
             if (!error)
             {
-                if (this->is_running_)
+                if (this->state_ == STATE_RUNNING)
                 {
                     std::cout << new_client->socket().lowest_layer().remote_endpoint().address().to_string() << " connected." << std::endl;
                     //处理新加入的game_client对象，这个时候game_client的available已经是true;
@@ -72,13 +83,17 @@ protected:
                     start_accept();
                 }
             }
+            else
+            {
+                std::cout << "stop accetor" << std::endl;
+            }
             //else if error, the new_client will be auto released.
         });
     }
 
     void stop_accept()
     {
-        if (this->is_accepting_ == true)
+        if (this->acceptor.is_open() == true)
         {
             boost::system::error_code error;
             this->acceptor.cancel(error);
@@ -92,8 +107,7 @@ protected:
             {
                 std::cout << "close error:" << error.message() << std::endl;
             }
-
-            this->is_accepting_ = false;
+            //this->is_accepting_ = false;
         }
     }
 
@@ -121,7 +135,8 @@ public:
     
     void tick_count_threads()
     {
-        for (int i = 0; i < this->worker_threads_.size(); i++)
+        int thread_size = this->worker_threads_.size();
+        for (int i = 0; i < thread_size; i++)
         {
             this->io_service_.post(std::bind(&tcp_server<SOCK_TYPE>::update_curr_thread, this));
         }
@@ -130,7 +145,6 @@ public:
     void update_curr_thread()
     {
         thread_status_map::iterator curr_thread_pair = this->threads_status()->find(std::this_thread::get_id());
-
         if (curr_thread_pair != this->threads_status()->end())
         {
             curr_thread_pair->second->restart();
@@ -143,7 +157,7 @@ public:
     {
         assert(std::this_thread::get_id() == this->service_thread_id_);
 
-        if (this->is_running_ == false)
+        if (this->is_running() == false)
         {
             if(acceptor.is_open() == false)
             {
@@ -163,20 +177,19 @@ public:
             }
 
             this->on_start();
-            this->work_mode_ = new io_service::work(this->io_service_);
-            this->is_running_ = true;
+            this->work_mode_ = new io_service::work(this->io_service_);            
 
             int thread_concurrency_count = std::thread::hardware_concurrency() + 1;
             for (int i = 0; i < thread_concurrency_count; i++)
             {
-                this->create_worker_thread();
+                this->create_worker_thread(err_);
             }
             for (int i = 0; i < thread_concurrency_count; i++)
             {
                 this->start_accept();
             }
-
-            this->is_accepting_ = true;
+            //this->is_accepting_ = true;
+            this->state_ = STATE_RUNNING;            
             this->on_started();
         }
     }
@@ -186,9 +199,10 @@ public:
     {
         assert(std::this_thread::get_id() == this->service_thread_id_);
 
-        if (this->is_running_ == true)
+        if (this->is_running() == true)
         {
-            this->is_running_ = false;
+            this->state_ == STATE_STOP_PENDING;
+            //this->cancel_all_task();
             //不接受新的client
             this->stop_accept();
             //on_stop很重要，它的目的是让信息以加速度缓慢，直至静止的方式，让plugin、zone中的消息停止下来；
@@ -196,19 +210,24 @@ public:
             //信号量，逐步的将事件停止下来， so，要在后面1、delete work；2、thread.join; 这样join阻塞完成之时，其实就是
             //所有线程上的事件都已经执行完毕;
             this->on_stop();
+
+            std::cout << "on_stop()" << std::endl;
             //让所有工作者线程不再空等
             delete this->work_mode_;
+
+            std::cout << "delete work_mode" << std::endl;
+
             for (int i = 0; i < this->worker_threads_.size(); i++)
             {
-                printf("waiting worker thread {%d}", this->worker_threads_.at(i)->get_id());
+                std::cout << "waiting for worker thread {" << this->worker_threads_.at(i)->get_id() << "}" << std::endl; ;
                 this->worker_threads_.at(i)->join();
-                printf("\r                                   \r");
-                dooqu_service::util::print_success_info("worker thread {%d} returned.", this->worker_threads_.at(i)->get_id());
+                dooqu_service::util::print_success_info("worker thread {%x} returned.", this->worker_threads_.at(i)->get_id());
             }
             //所有线程上的事件都已经执行完毕后， 安全的停止io_service;
             this->io_service_.stop();
             //重置io_service，以备后续可能的tcp_server.start()的再次调用。
             this->io_service_.reset();
+            this->state_ = STATE_STOP;
             this->on_stoped();
             dooqu_service::util::print_success_info("service stoped successfully.");
         }
@@ -216,7 +235,7 @@ public:
 
     inline bool is_running()
     {
-        return this->is_running_;
+        return this->state_ == STATE_RUNNING;
     }
 
     virtual ~tcp_server()
@@ -227,7 +246,6 @@ public:
             delete worker_threads_.at(i);
         }
     }
-
 };
 
 
@@ -236,7 +254,7 @@ inline tcp_server<tcp_stream>::tcp_server(unsigned int port) :
     acceptor(io_service_),
     context_(boost::asio::ssl::context::sslv23),
     port_(port),
-    is_running_(false),
+    state_(0),
     is_accepting_(false),
     service_thread_id_(std::this_thread::get_id())
 {
@@ -248,7 +266,7 @@ inline tcp_server<ssl_stream>::tcp_server(unsigned int port) :
     acceptor(io_service_),
     context_(boost::asio::ssl::context::sslv23),
     port_(port),
-    is_running_(false),
+    state_(0),
     is_accepting_(false),
     service_thread_id_(std::this_thread::get_id())
 {
@@ -259,6 +277,33 @@ inline tcp_server<ssl_stream>::tcp_server(unsigned int port) :
     //context_.set_password_callback(boost::bind(&server::get_password, this));
     context_.use_certificate_chain_file("server.pem");
     context_.use_private_key_file("server.key", boost::asio::ssl::context::pem);
+}
+
+
+template<>
+inline void tcp_server<ssl_stream>::start_accept()
+{
+    ws_session<ssl_stream> *client = this->on_create_client();
+    ws_session_ptr new_client(client, std::bind(&tcp_server<ssl_stream>::on_destroy_client, this, client));
+    this->acceptor.async_accept(client->socket().lowest_layer(),
+                                [this, new_client](const boost::system::error_code &error) {
+                                    if (!error)
+                                    {
+                                        if (this->state_ == STATE_RUNNING)
+                                        {
+                                            std::cout << new_client->socket().lowest_layer().remote_endpoint().address().to_string() << " connected." << std::endl;
+                                            //处理新加入的game_client对象，这个时候game_client的available已经是true;
+                                            this->on_client_connected(new_client.get());
+                                            //deliver new async accept;
+                                            start_accept();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        std::cout << "stop accetor" << std::endl;
+                                    }
+                                    //else if error, the new_client will be auto released.
+                                });
 }
 
 }

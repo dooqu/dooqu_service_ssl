@@ -254,9 +254,10 @@ public:
         // std::ostringstream tmp;
         // tmp << is.rdbuf();
         // reader = tmp.str();    
-        boost::asio::streambuf::const_buffers_type cbt = response_.data();  
-        std::string s(boost::asio::buffers_begin(cbt), boost::asio::buffers_end(cbt));  
-        reader = s;        
+        boost::asio::streambuf::const_buffers_type cbt = response_.data();        
+        reader.append(boost::asio::buffers_begin(cbt), boost::asio::buffers_end(cbt));  
+        // std::string s(boost::asio::buffers_begin(cbt), boost::asio::buffers_end(cbt));  
+        //reader = s;        
     }
 
     boost::asio::streambuf& stream()

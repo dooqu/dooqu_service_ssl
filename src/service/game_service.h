@@ -52,7 +52,7 @@ class game_plugin;
 
 
 template<class SOCK_TYPE>
-class game_service : public command_dispatcher, public async_task, public tcp_server<SOCK_TYPE>
+class game_service : public command_dispatcher, public tcp_server<SOCK_TYPE>, public async_task
 {
 public:
     typedef std::shared_ptr<ws_session<SOCK_TYPE> > ws_session_ptr;
@@ -63,8 +63,11 @@ public:
     typedef std::set<ws_session_ptr> game_client_map;
 
 protected:
-    enum { MAX_AUTH_SESSION_COUNT = 100 };
+    enum { MAX_AUTH_SESSION_COUNT = 200 };
+    //map all plugins.
     game_plugin_map plugins_;
+
+    //list all plugins, for order list.
     game_plugin_list plugin_list_;
     game_zone_map zones_;
     game_client_map clients_;
@@ -75,7 +78,6 @@ protected:
 
     boost::asio::deadline_timer check_timeout_timer;
 
-    //std::set<http_request*> http_request_working_;
     void* request_block_[2];
     std::queue<void*> request_pool_[2];
     std::recursive_mutex request_pool_mutex_[2];
@@ -83,17 +85,14 @@ protected:
     std::recursive_mutex mutex_temp_;
     std::queue<http_request_task*> task_queue_;
     std::recursive_mutex task_queue_mutex_;
-//    std::recursive_mutex update_tasks_mutex_;
 
     /*start_events*/
     virtual void on_start();
     virtual void on_started();
     virtual void on_stop();
     virtual void on_stoped();
-    inline virtual void on_client_command(game_session<SOCK_TYPE>* client, command* command);
     virtual ws_session<SOCK_TYPE>* on_create_client();
     virtual void on_client_connected(ws_session<SOCK_TYPE>* client);
-	//virtual int on_client_handshake(ws_client* client, ws_request* req);
     virtual void on_client_leave(game_session<SOCK_TYPE>* client, int code);
     virtual void on_destroy_client(ws_session<SOCK_TYPE>*);
     virtual void on_check_timeout_clients(const boost::system::error_code &error);
@@ -105,15 +104,20 @@ protected:
     void http_request_handle(const boost::system::error_code& err, const int status_code,  void* req, req_callback callback);
     void queue_http_request_handle(const boost::system::error_code& err, const int status_code, http_request* req, req_callback callback);
     /*end_functions*/
+
     //非虚方法
     void begin_auth(game_plugin* plugin, game_session<SOCK_TYPE>* client, command* cmd);
     void end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, const char* plugin_id, game_session<SOCK_TYPE>* client);
     void dispatch_bye(ws_client* client);
-    void post_handle(std::function<void(void)> handle);
 
     //应用层注册
     void client_login_handle(game_session<SOCK_TYPE>* client, command* command);
     void robot_login_handle(game_session<SOCK_TYPE>* client, command* command);
+
+    bool can_do()
+    {
+        return this->is_running();
+    }
 
 public:
     game_service(unsigned int port);
@@ -122,13 +126,38 @@ public:
     bool unload_plugin(game_plugin* game_plugin, int seconds_wait_for_complete = -1);
     virtual bool start_http_request(const char* host, const char* path, req_callback callback);
     virtual bool queue_http_request(const char* host, const char* path, req_callback callback);
+    void post_handle(std::function<void(void)> handle)
+    {
+        this->io_service_.post(handle);
+    }
     void post_handle(std:: function<void(void)> handle, int millisecs_delay, bool cancel_enable = false)
     {
+        std::cout << "post_handle::time:" << std::this_thread::get_id() << std::endl;
         this->async_task::queue_task(handle, millisecs_delay, cancel_enable);
     }
+
     inline game_plugin_list* get_plugins()
     {
         return &this->plugin_list_;
+    }
+
+    void offline_all()
+    {
+        {
+            int total_clients_size = this->clients_.size();
+            int curr_index = 0;
+            ___lock___(this->clients_mutex_, "game_service::on_stop::client_mutex");
+            for (typename game_client_map::iterator curr_client = this->clients_.begin();
+                    curr_client != this->clients_.end(); ++curr_client)
+            {
+                ws_session_ptr client = (*curr_client);
+                //client->disconnect((uint16_t)service_error::WS_ERROR_GOING_AWAY, NULL);
+                client->async_close();
+                curr_index ++;
+            }
+
+            std::cout << "total_size:" << total_clients_size << ", curr_index=" << curr_index << std::endl;
+        }
     }
 
 };
@@ -137,14 +166,12 @@ template<>
 inline game_service<tcp_stream>::game_service(unsigned int port) :
     tcp_server<tcp_stream>(port), async_task(this->get_io_service()), check_timeout_timer(get_io_service())
 {
-    std::cout << "game_service" << '\a' << std::endl;
 }
 
 template<>
 inline game_service<ssl_stream>::game_service(unsigned int port) :
     tcp_server<ssl_stream>(port), async_task(this->get_io_service()), check_timeout_timer(get_io_service())
 {
-        std::cout << "game_service" << '\a' << std::endl;
 }
 
 template<class SOCK_TYPE>
@@ -193,7 +220,7 @@ int game_service<SOCK_TYPE>::load_plugin(game_plugin* game_plugin, char* zone_id
         {
             game_zone* zone = game_plugin->on_create_zone(zone_id);
 
-            if (this->is_running_ && zone != NULL)
+            if (this->is_running() && zone != NULL)
             {
                 zone->load();
             }
@@ -202,7 +229,7 @@ int game_service<SOCK_TYPE>::load_plugin(game_plugin* game_plugin, char* zone_id
         }
     }
 
-    if (this->is_running_)
+    if (this->is_running())
     {
         game_plugin->load();
     }
@@ -269,9 +296,7 @@ template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::on_start()
 {
     std::srand((unsigned)time(NULL));
-
     this->regist_handle("LOG", make_handler(game_service::client_login_handle));
-    this->regist_handle("RLG", make_handler(game_service::robot_login_handle));
     //加载所有的所有分区
     for (game_zone_map::iterator curr_zone = this->zones_.begin();
             curr_zone != this->zones_.end(); ++curr_zone)
@@ -300,12 +325,14 @@ void game_service<SOCK_TYPE>::on_start()
     }
 }
 
+
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::on_started()
 {
     this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(5));
     this->check_timeout_timer.async_wait(std::bind(&game_service<SOCK_TYPE>::on_check_timeout_clients, this, std::placeholders::_1));
 }
+
 
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::on_stop()
@@ -331,40 +358,28 @@ void game_service<SOCK_TYPE>::on_stop()
             (*curr_game)->unload();
         }
     }
-    ////boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    //停止所有的游戏区
+
     for (game_zone_map::iterator curr_zone = this->zones_.begin();
             curr_zone != this->zones_.end(); ++curr_zone)
     {
         (*curr_zone).second->unload();
     }
+    std::cout << "game_service::on_stop()=>" << this->clients_.size() << std::endl;
 }
+
+
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::on_stoped()
 {
-    //on_destroy_clients_in_destroy_list(true);
+
 }
+
 
 template<class SOCK_TYPE>
 void game_service<SOCK_TYPE>::dispatch_bye(ws_client* client)
 {
-    game_session<SOCK_TYPE>* game_client = (game_session<SOCK_TYPE>*)client;
+    game_session<SOCK_TYPE>* game_client = dynamic_cast<game_session<SOCK_TYPE>*>(client);
     this->on_client_leave(client, game_client->get_error_code());
-}
-
-template<class SOCK_TYPE>
-void game_service<SOCK_TYPE>::on_client_command(game_session<SOCK_TYPE>* client, command* command)
-{
-    if (this->is_running_ == false)
-        return;
-
-    if (client->can_active() == false)
-    {
-        client->disconnect((uint16_t)service_error::CONSTANT_REQUEST, NULL);
-        return;
-    }
-    command_dispatcher::on_client_command(client, command);
 }
 
 
@@ -390,7 +405,7 @@ inline ws_session<ssl_stream>* game_service<ssl_stream>::on_create_client()
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_client_connected(ws_session<SOCK_TYPE>* t_client)
 {
-    game_session<SOCK_TYPE>* client = (game_session<SOCK_TYPE>*)t_client;
+    game_session<SOCK_TYPE>* client = dynamic_cast<game_session<SOCK_TYPE>*>(t_client);
     client->set_available(true);
     //设置命令的监听者为当前service
     client->set_command_dispatcher(this);
@@ -409,7 +424,7 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_client_leave(game_session<SOCK_TYPE>* client, int leave_code)
 {
     printf("{%s} leave game_service. code={%d}\n", client->id(), leave_code);
-    client->set_command_dispatcher(NULL);
+    //client->set_command_dispatcher(NULL);
     {
         ___lock___(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
         this->clients_.erase(client->shared_from_this());
@@ -419,11 +434,7 @@ inline void game_service<SOCK_TYPE>::on_client_leave(game_session<SOCK_TYPE>* cl
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_destroy_client(ws_session<SOCK_TYPE>* t_client)
 {
-    game_session<SOCK_TYPE>* client = (game_session<SOCK_TYPE>*)t_client;
-	if (client->read_pos_ != -1)
-	{
-		std::cout << "client destroy error." << std::endl;
-	}
+    game_session<SOCK_TYPE>* client = dynamic_cast<game_session<SOCK_TYPE>*>(t_client);
     client->~game_session<SOCK_TYPE>();
     memory_pool_free<game_session<SOCK_TYPE>>(client);
 }
@@ -433,8 +444,9 @@ inline void game_service<SOCK_TYPE>::on_destroy_client(ws_session<SOCK_TYPE>* t_
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::system::error_code &error)
 {
-    if (!error && this->is_running_)
+    if (!error)
     {
+        std::cout << "on_check_timeout_clients{" << std::this_thread::get_id() << "}:" << this->clients_.size() << std::endl;
         //如果禁用超时检测，请注释return;
         if(this->clients_.size() > 0)
         {
@@ -443,7 +455,9 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
             for (typename game_client_map::iterator curr_client = this->clients_.begin();
                     curr_client != this->clients_.end(); ++curr_client)
             {
-                game_session_ptr client = ((game_session<SOCK_TYPE>*)(*curr_client).get())->get_shared_ptr();
+                ws_session<SOCK_TYPE>* ws_sess = (*curr_client).get();
+                game_session<SOCK_TYPE>*  game_sess = dynamic_cast<game_session<SOCK_TYPE>*>(ws_sess);
+                game_session_ptr client = game_sess->get_shared_ptr();
                 if (client->command_dispatcher_ == this && client->actived_time_elapsed() > 5 * 1000)
                 {
                     uint16_t ret = service_error::TIME_OUT;
@@ -472,18 +486,22 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
         }
 
         //如果服务没有停止， 那么继续下一次计时
-        if (this->is_running_)
+        if (this->is_running())
         {
-            this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(15));
+            this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(10));
             this->check_timeout_timer.async_wait(std::bind(&game_service::on_check_timeout_clients, this, std::placeholders::_1));
         }
+    }
+    else
+    {
+        std::cout << "stop service timeout checker." << std::endl;
     }
 }
 
 template<class SOCK_TYPE>
 inline bool game_service<SOCK_TYPE>::queue_http_request(const char* host, const char* path, req_callback callback)
 {
-    std::cout << "queue http request" << std::endl;
+    //std::cout << "queue http request" << std::endl;
     void* req_block = this->malloc_http_request(1);
     if(req_block != NULL)
     {
@@ -598,7 +616,7 @@ inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_sessio
     {
         if(!error && status_code == 200)
         {
-            game_session<SOCK_TYPE>* client = (game_session<SOCK_TYPE>*)self.get();
+            game_session<SOCK_TYPE>* client = dynamic_cast<game_session<SOCK_TYPE>*>(self.get());
             ___lock___(client->recv_lock_, "end_auth::commander_mutex");
             {
                 if(client->available() == false || client->error_frame_sended_ || client->error_frame_recved_)
@@ -641,11 +659,12 @@ inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_sessio
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, const char* plugin_id, game_session<SOCK_TYPE>* client)
 {
-    if (this->is_running_ == false)
+    if (this->is_running() == false)
+    {
         return;
+    }       
 
     uint16_t ret = service_error::NO_ERROR;
-
     {
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
         ___lock___(this->clients_mutex_, "game_service::end_auth::clients_mutex");
@@ -688,12 +707,6 @@ inline void game_service<SOCK_TYPE>::end_auth(const boost::system::error_code& c
     }
 }
 
-template<class SOCK_TYPE>
-void game_service<SOCK_TYPE>::post_handle(std::function<void(void)> handle)
-{
-    this->io_service_.post(handle);
-}
-
 
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::client_login_handle(game_session<SOCK_TYPE>* client, command* command)
@@ -724,6 +737,8 @@ inline void game_service<SOCK_TYPE>::client_login_handle(game_session<SOCK_TYPE>
         client->plugin_addr_ = reinterpret_cast<int>(plugin);
         //把目标plugin的id带上，在回调函数中要再次检查plugin是否还在
         this->begin_auth(plugin, client, command);
+
+        //plugin->join_client(client);
         //在认证期间用户发送的命令将被忽略
         //client->set_command_dispatcher(NULL);
     }
@@ -734,14 +749,9 @@ inline void game_service<SOCK_TYPE>::client_login_handle(game_session<SOCK_TYPE>
 }
 
 template<class SOCK_TYPE>
-inline void game_service<SOCK_TYPE>::robot_login_handle(game_session<SOCK_TYPE>* client, command* command)
-{
-}
-
-template<class SOCK_TYPE>
 inline game_service<SOCK_TYPE>::~game_service()
 {
-    if (this->is_running_ == true)
+    if (this->is_running() == true)
     {
         this->stop();
     }

@@ -79,6 +79,10 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 
 	ws_framedata_parser data_parser_;
 
+	virtual void on_error(const int error) = 0;
+
+	virtual void on_frame_data(ws_framedata *framedata) = 0;
+
 	//用来标识socket对象是否可用
 	bool available_;
 
@@ -145,6 +149,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		boost::asio::async_write(this->socket_, boost::asio::buffer(bad_request_400, strlen(bad_request_400)),
 								 [this, self](const boost::system::error_code &error, size_t bytes_sended) 
 								 {
+									 //whatever error or not.
 									 this->on_error(dooqu_service::net::service_error::WS_HANDSHAKE_ERROR);
 								 });
 	}
@@ -182,6 +187,8 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 							//client send this confirm closure frame.at this time,server should shutdown low_layer socket immediately.
 							this->async_close();
 						}
+						// when (this->error_frame_sended == 1)
+						// then close will be invoke in write_handle
 					}
 					else if (this->error_code_ == service_error::NO_ERROR)
 					{
@@ -225,7 +232,8 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 					frame_data_.reset();
 				}
 				break;
-			} while (true);
+			} 
+			while (true);
 
 			socket_.async_read_some(boost::asio::buffer(this->frame_data_.data + frame_data_.length, ws_framedata::BUFFER_SIZE - frame_data_.length),
 									std::bind(&ws_session<SOCK_TYPE>::on_data_received, shared_from_this(),
@@ -233,6 +241,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		}
 		else
 		{
+			___lock___(this->recv_lock_, "ws_client::on_data_received");
 			this->set_available(false);
 			this->on_error(dooqu_service::net::service_error::WS_ERROR_NORMAL_CLOSURE);
 		}
@@ -279,10 +288,8 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 			}
 			char key_data[128] = {0};
 			sprintf(key_data, "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key);
-
 			char accept_key[29] = {0};
 			dooqu_service::util::ws_util::generate(key, accept_key);
-
 			this->write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", accept_key);
 
 			return true;
@@ -307,10 +314,6 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 	{
 		this->error_code_ = err_code;
 	}
-
-	virtual void on_error(const int error) = 0;
-
-	virtual void on_frame_data(ws_framedata *framedata) = 0;
 
 	virtual int on_ws_handshake(ws_request *request)
 	{
@@ -475,9 +478,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		buffer_stream *curr_buffer = NULL;
 
 		___lock___(this->send_lock_, "ssl_connection::write::send_buffer_lock_");
-		bool ret = this->alloc_available_buffer(&curr_buffer);
-		assert(ret == true);
-		if (ret == false)
+		if(this->alloc_available_buffer(&curr_buffer) == false)
 		{
 			return;
 		}
@@ -512,7 +513,6 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		*curr_buffer->at(curr_buffer->pos_start) = finbyte;
 		curr_buffer->set_error_frame(opcode == ws_framedata::opcode::CLOSE);
 
-		//std::cout << "缓冲区为" << curr_buffer->read() << std::endl;
 		if (read_pos_ == -1)
 		{
 			//只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
@@ -616,7 +616,6 @@ inline void ws_session<ssl_stream>::start()
 template <>
 inline void ws_session<ssl_stream>::async_close()
 {
-	//___lock___(this->recv_lock_, "game_client::disconnect.recv_lock_");
 	boost::system::error_code err_code;
 	ws_session_ptr self = shared_from_this();
 	this->socket().async_shutdown([this, self](const boost::system::error_code &error) {
