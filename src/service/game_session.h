@@ -214,17 +214,6 @@ protected:
 	{
 		return std::dynamic_pointer_cast<game_session<SOCK_TYPE>>(shared_from_this());
 	}
-
-	void disconnect(unsigned short code, char *reason)
-	{
-		___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
-		if(this->is_availabled())
-		{
-			this->available_ = false;
-			this->error_code_ = code;
-			this->write_error(code, reason);
-		}
-	}
 };
 
 ///////////////////

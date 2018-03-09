@@ -61,7 +61,7 @@ protected:
         this->threads_status_[worker_thread->get_id()] = new tick_count();
         service_status::instance()->init(worker_thread->get_id());
         worker_threads_.push_back(worker_thread);
-        std::cout << "create worker thread =>" << worker_thread->get_id() << std::endl;
+        std::cout << "worker thread 0x" << std::hex << worker_thread->get_id() << " created." << std::endl;
     }
 
 
@@ -114,7 +114,6 @@ protected:
     virtual ws_session<SOCK_TYPE>* on_create_client() = 0;
     virtual void on_client_connected(ws_session<SOCK_TYPE>* client) = 0;
     virtual void on_destroy_client(ws_session<SOCK_TYPE>*) = 0;
-
     virtual void on_start(){}
     virtual void on_started(){}
     virtual void on_stop(){}
@@ -148,7 +147,7 @@ public:
         if (curr_thread_pair != this->threads_status()->end())
         {
             curr_thread_pair->second->restart();
-            std::cout << "post update at thread: " << std::this_thread::get_id() << std::endl;
+            std::cout << "post update at thread 0x" << std::hex << std::this_thread::get_id() << std::endl;
         }
     }
 
@@ -197,7 +196,7 @@ public:
 
     void stop()
     {
-        assert(std::this_thread::get_id() == this->service_thread_id_);
+        //assert(std::this_thread::get_id() == this->service_thread_id_);
 
         if (this->is_running() == true)
         {
@@ -219,7 +218,7 @@ public:
 
             for (int i = 0; i < this->worker_threads_.size(); i++)
             {
-                std::cout << "waiting for worker thread {" << this->worker_threads_.at(i)->get_id() << "}" << std::endl; ;
+                std::cout << "waiting for worker thread 0x" << std::hex << this->worker_threads_.at(i)->get_id() << "..." << std::endl; ;
                 this->worker_threads_.at(i)->join();
                 dooqu_service::util::print_success_info("worker thread {%x} returned.", this->worker_threads_.at(i)->get_id());
             }

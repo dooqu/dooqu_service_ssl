@@ -14,6 +14,7 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <mutex>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -34,6 +35,7 @@ public:
     boost::asio::streambuf response_;
     http_request_callback callback_func_;
     boost::asio::deadline_timer timer_;
+     static  std::mutex mutex_;
 
     http_request(boost::asio::io_service& io_service,
                  const std::string& server, const std::string& path, http_request_callback callback_func)
@@ -54,11 +56,6 @@ public:
 
         // Start an asynchronous resolve to translate the server and service names
         // into a list of endpoints.
-        tcp::resolver::query query(server, "http");
-        resolver_.async_resolve(query,
-                                boost::bind(&http_request::handle_resolve, this,
-                                            boost::asio::placeholders::error,
-                                            boost::asio::placeholders::iterator));
         timer_.expires_from_now(boost::posix_time::milliseconds(3000));
         timer_.async_wait([this](const boost::system::error_code& error)
         {
@@ -72,6 +69,12 @@ public:
                 std::cout << "resolve_timer is canceled." << std::endl;
             }
         });
+
+        tcp::resolver::query query(server, "http");
+        resolver_.async_resolve(query,
+                                boost::bind(&http_request::handle_resolve, this,
+                                            boost::asio::placeholders::error,
+                                            boost::asio::placeholders::iterator));
     }
 
     virtual ~http_request()
@@ -84,13 +87,9 @@ private:
                         tcp::resolver::iterator endpoint_iterator)
     {
         timer_.cancel();
+
         if (!err)
         {
-            // Attempt a connection to each endpoint in the list until we
-            // successfully establish a connection.
-            boost::asio::async_connect(socket_, endpoint_iterator,
-                                       boost::bind(&http_request::handle_connect, this,
-                                                   boost::asio::placeholders::error));
             timer_.expires_from_now(boost::posix_time::milliseconds(5000));
             timer_.async_wait([this](const boost::system::error_code& error)
             {
@@ -105,6 +104,11 @@ private:
                     std::cout << "connect_timer is canceled." << std::endl;
                 }
             });
+            // Attempt a connection to each endpoint in the list until we
+            // successfully establish a connection.
+            boost::asio::async_connect(socket_, endpoint_iterator,
+                                       boost::bind(&http_request::handle_connect, this,
+                                                   boost::asio::placeholders::error));
         }
         else
         {
@@ -116,6 +120,7 @@ private:
     void handle_connect(const boost::system::error_code& err)
     {
         timer_.cancel();
+
         if (!err)
         {
             // The connection was successful. Send the request.
@@ -134,14 +139,7 @@ private:
     {
         if (!err)
         {
-            // Read the response status line. The response_ streambuf will
-            // automatically grow to accommodate the entire line. The growth may be
-            // limited by passing a maximum size to the streambuf constructor.
-            boost::asio::async_read_until(socket_, response_, "\r\n",
-                                          boost::bind(&http_request::handle_read_status_line, this,
-                                                  boost::asio::placeholders::error));
-            
-            timer_.expires_from_now(boost::posix_time::milliseconds(5000));
+            timer_.expires_from_now(boost::posix_time::milliseconds(8000));
             timer_.async_wait([this](const boost::system::error_code& error)
             {
                 if(!error)
@@ -150,6 +148,13 @@ private:
                     this->socket_.close(err);
                 }
             });
+            // Read the response status line. The response_ streambuf will
+            // automatically grow to accommodate the entire line. The growth may be
+            // limited by passing a maximum size to the streambuf constructor.
+            boost::asio::async_read_until(socket_, response_, "\r\n",
+                                          boost::bind(&http_request::handle_read_status_line, this,
+                                                  boost::asio::placeholders::error));
+            
         }
         else
         {
@@ -174,6 +179,7 @@ private:
             if (!response_stream || http_version.substr(0, 5) != "HTTP/")
             {
                 std::cout << "Invalid response\n";
+                timer_.cancel();
                 this->callback_func_(err, 400);
                 return;
             }
@@ -182,6 +188,7 @@ private:
             {
                 std::cout << "Response returned with status code ";
                 std::cout << status_code << "\n";
+                timer_.cancel();
                 this->callback_func_(err, status_code);
                 return;
             }
@@ -194,6 +201,7 @@ private:
         else
         {
             std::cout << "Error: " << err << "\n";
+            timer_.cancel();
             this->callback_func_(err, 0);
         }
     }
@@ -219,6 +227,7 @@ private:
         else
         {
             std::cout << "Error: " << err << "\n";
+            timer_.cancel();
             this->callback_func_(err, 0);
         }
     }
@@ -238,6 +247,7 @@ private:
         else if (err != boost::asio::error::eof)
         {
             std::cout << "Error: " << err << "\n";
+            timer_.cancel();
             this->callback_func_(err, 0);
         }
         else
@@ -265,6 +275,8 @@ public:
         return this->response_;
     }
 };
+
+//extern std::mutex http_request::mutex_;
 }
 }
 

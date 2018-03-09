@@ -413,15 +413,11 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		this->available_ = is_avaibled;
 	}
 
-	bool is_availabled()
+	bool is_available()
 	{
 		return this->available_;
 	}
 
-	bool available()
-	{
-		return this->available_;
-	}
 
 	//向客户端输出数据字节流方法，此方法只提供向用户写入裸流，不报装websocket数据协议
 	void write(const char *format, ...)
@@ -538,8 +534,20 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		}
 	}
 
+	void disconnect(unsigned short code, char *reason)
+	{
+		___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
+		if(this->is_available())
+		{
+			this->available_ = false;
+			this->error_code_ = code;
+			this->write_error(code, reason);
+		}
+	}
+
 	void async_close()
 	{
+		___lock___(this->send_lock_, "ssl_connection::async_close");
 		boost::system::error_code err_code;
 		this->socket().shutdown(boost::asio::socket_base::shutdown_both, err_code);
 		this->socket().close();
@@ -616,6 +624,7 @@ inline void ws_session<ssl_stream>::start()
 template <>
 inline void ws_session<ssl_stream>::async_close()
 {
+	___lock___(this->send_lock_, "ssl_connection::async_close");
 	boost::system::error_code err_code;
 	ws_session_ptr self = shared_from_this();
 	this->socket().async_shutdown([this, self](const boost::system::error_code &error) {

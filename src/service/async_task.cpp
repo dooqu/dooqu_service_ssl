@@ -20,7 +20,7 @@ async_task::~async_task()
 //queue_task会从deque的头部弹出有效的timer对象，用完后，从新放回的头部，这样deque头部的对象即为活跃timer
 //如timer对象池中后部的对象长时间未被使用，说明当前对象被空闲，可以回收。
 //注意：｛如果game_zone所使用的io_service对象被cancel掉，那么用户层所注册的callback_handle是不会被调用的！｝
-async_task::task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
+async_task::task_timer* async_task::queue_task_internal(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled, bool sys_call)
 {
     if(sleep_duration <= 0)
     {
@@ -53,7 +53,7 @@ async_task::task_timer* async_task::queue_task(std::function<void(void)> callbac
     //调用操作
     curr_timer_->expires_from_now(boost::posix_time::milliseconds(sleep_duration));
     curr_timer_->async_wait(std::bind(&async_task::task_handle, this,
-                                      std::placeholders::_1, curr_timer_, callback_handle));
+                                      std::placeholders::_1, curr_timer_, callback_handle, sys_call));
     {
         ___lock___(this->working_timers_mutex_,  "game_zone::queue_task::working_timers_mutex");
         this->working_timers_.insert(curr_timer_);
@@ -65,6 +65,11 @@ async_task::task_timer* async_task::queue_task(std::function<void(void)> callbac
         printf("queue_task: pool_size:(%d), working_size(%d), is_from_pool(%d)\n", pool_size, working_size, from_pool);
     }
     return curr_timer_;
+}
+
+async_task::task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
+{
+    return this->queue_task_internal(callback_handle, sleep_duration, cancel_enabled, false);
 }
 
 
@@ -95,7 +100,7 @@ void async_task::cancel_all_task()
 //1、判断回调状态
 //2、处理timer资源
 //3、调用上层回调
-void async_task::task_handle(const boost::system::error_code& error, task_timer* timer_, std::function<void(void)> callback_handle)
+void async_task::task_handle(const boost::system::error_code& error, task_timer* timer_, std::function<void(void)> callback_handle, bool sys_call)
 {
     int pool_size = 0;
     int working_size = 0;
@@ -131,9 +136,13 @@ void async_task::task_handle(const boost::system::error_code& error, task_timer*
         printf("task_handle: pool_size(%d), working_size(%d)\n", pool_size, working_size);
     }
 
-    if (!error && can_do())
+    if (!error && (sys_call || can_async_task_callback()))
     {
         callback_handle();        //返回不执行后续逻辑
+    }
+    else
+    {
+        std::cout << "async_task callback not." << std::endl;
     }
 }
 }

@@ -245,7 +245,7 @@ namespace dooqu_server
 			desk->set(pos_index, NULL);
 
 			//如果玩家还在线，通知他已经成功离开
-			if (client->available())
+			if (client->is_available())
 			{
 				client->write("ODK %s %s%c", desk->id(), ddz_desk::POS_STRINGS[pos_index], NULL);
 			}

@@ -30,7 +30,7 @@ public:
   virtual unsigned short get_error_code() = 0;
   virtual void set_error_code(unsigned short error_code) = 0;
   virtual std::recursive_mutex &get_recv_mutex() = 0;
-  virtual bool is_availabled() = 0;
+  virtual bool is_available() = 0;
   virtual bool can_active() = 0;
   virtual int update_retry_count(bool increase) = 0;
   virtual void set_command_dispatcher(void*) = 0;

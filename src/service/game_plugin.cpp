@@ -199,7 +199,7 @@ void game_plugin::unload()
 
         while(this->clients_count() > 0)
         {
-            //std::cout << "等待game_plugin::unload:" << std::this_thread::get_id() << std::endl;
+            std::cout << "等待game_plugin::unload:" << std::this_thread::get_id() << std::endl;
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         print_success_info("plugin {%s} unloaded.", this->game_id());
@@ -212,7 +212,7 @@ int game_plugin::join_client(ws_client* client)
     ___lock___(this->clients_lock_, "game_plugin::join_client::clients_lock_");
 
     int ret = this->on_befor_client_join(client);
-    if(client->is_availabled() == false)
+    if(client->is_available() == false)
     {
         return client->get_error_code();
     }
