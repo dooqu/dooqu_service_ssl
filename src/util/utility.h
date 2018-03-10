@@ -53,27 +53,12 @@ namespace util
 void print_success_info(const char* format, ...);
 void print_error_info(const char* format, ...);
 int random(int a, int b);
-//template<typename TYPE>
-//void* memory_pool_malloc();
-//
-//template <typename TYPE>
-//void memory_pool_free(void* chunk);
-//
-//template <typename TYPE>
-//void memory_pool_release();
-//
-//template <typename TYPE>
-//void memory_pool_purge();
 
-//game_client;
-//task_timer;
-//http_request_task;
-//buffer_stream
 
 template<typename TYPE>
 extern void* memory_pool_malloc()
 {
-    // printf("SO: memeory_pool_malloc:(%s)\n", typeid(TYPE).name());
+    //printf("SO: memeory_pool_malloc:(%s)\n", typeid(TYPE).name());
     return boost::singleton_pool<TYPE, sizeof(TYPE)>::malloc();
     //return service_status::instance()->memory_pool_malloc<TYPE>();
 }

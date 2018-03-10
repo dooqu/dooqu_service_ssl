@@ -31,6 +31,10 @@ typedef boost::asio::ssl::stream<tcp_stream> ssl_stream;
 template<class SOCK_TYPE>
 class ws_server;
 
+//ws_session的close和close之间， close和write之间要上锁，因为asio内部实现问题，socket被close之后，部分内部data字段被置NULL，极限
+//情况下，线程并发导致，close和close、以及close和write之间同步叠加执行，会导致在NULL字段上执行方法，导致段错误。
+//至于为什么没有在recv大循环中，同步write和close，是因为程序的架构模式， recv并不会和close之间产品线程叠加调用冲突？(还需确认)
+//三者之间的关系可以归类为，close是写锁， write和recv是读锁；
 template <class SOCK_TYPE>
 class ws_session : public ws_client, public std::enable_shared_from_this<ws_session<SOCK_TYPE>>, boost::noncopyable
 {
@@ -161,6 +165,11 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 	}
 
 	//用来接收数据的回调方法
+	//recv_lock 是大循环的状态保持锁， 它对以下四个数据进行事物级的状态保障：
+	//1、数据接收大循环的串行，正常来说，recv对于单个用户来说就是串行的的，但simulate_data，可能会在另外的线程发起，recv_loc保障数据串行处理
+	//2、error_frame_recved 字段的事务级读写
+	//3、available状态改变的一致性，其他线程如果想精准的获取available状态，要务必锁定recv_lock.	
+	//4、数据3和数据4具有关联性，大循环的退出条件既是recv.error=true，并调用on_error，以及plugin和service的client退出处理，保障在此系列调用的事务特性。
 	virtual void on_data_received(const boost::system::error_code &error, size_t bytes_received)
 	{
 		if (!error)
@@ -187,8 +196,10 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 							//client send this confirm closure frame.at this time,server should shutdown low_layer socket immediately.
 							this->async_close();
 						}
-						// when (this->error_frame_sended == 1)
+						// if (this->error_frame_sended == 1)
 						// then close will be invoke in write_handle
+						
+						break;//if recv a close frame, then break the analysis;
 					}
 					else if (this->error_code_ == service_error::NO_ERROR)
 					{
@@ -534,9 +545,16 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		}
 	}
 
-	void disconnect(unsigned short code, char *reason)
+	void disconnect(unsigned short code, char *reason = NULL)
 	{
-		___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
+		//貌似没有必要加这个锁， 也没有必要对加这个锁，close之后，write调用会失败的?
+		//对avaiable的访问，recv方向是加锁读写的
+		//考虑再三，决定还是先不加锁，缺点是在client recv断开之后，还可以发起send，但无关紧要；
+		//换来的优点是类似for_each_client. disconnect的调用，不用post_handle了。
+		//尽量让业务段的调用在大循环之外，少出现lock的间接调用，造成死锁的情况；
+		//例如，大循环之内的on_xxx，函数，用户再调用disconnect其实是没有问题的，因为最顶层已经锁定recv_lock；
+		//而如果极限情况，用户自己发起线程，或者在update中，先for_each_client，在循环内部discnnect，会相反顺序lock，而造成死锁；
+		//___lock___(this->recv_lock_, "game_client::disconnect_int.recv_lock_");
 		if(this->is_available())
 		{
 			this->available_ = false;

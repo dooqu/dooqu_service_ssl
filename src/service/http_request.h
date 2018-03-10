@@ -275,8 +275,6 @@ public:
         return this->response_;
     }
 };
-
-//extern std::mutex http_request::mutex_;
 }
 }
 

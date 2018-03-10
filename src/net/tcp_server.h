@@ -253,7 +253,7 @@ inline tcp_server<tcp_stream>::tcp_server(unsigned int port) :
     acceptor(io_service_),
     context_(boost::asio::ssl::context::sslv23),
     port_(port),
-    state_(0),
+    state_(STATE_STOP),
     is_accepting_(false),
     service_thread_id_(std::this_thread::get_id())
 {
@@ -265,7 +265,7 @@ inline tcp_server<ssl_stream>::tcp_server(unsigned int port) :
     acceptor(io_service_),
     context_(boost::asio::ssl::context::sslv23),
     port_(port),
-    state_(0),
+    state_(STATE_STOP),
     is_accepting_(false),
     service_thread_id_(std::this_thread::get_id())
 {

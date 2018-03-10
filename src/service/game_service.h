@@ -155,26 +155,6 @@ public:
     {
         return &this->plugin_list_;
     }
-
-    void offline_all()
-    {
-        {
-            int total_clients_size = this->clients_.size();
-            int curr_index = 0;
-            ___lock___(this->clients_mutex_, "game_service::on_stop::client_mutex");
-            for (typename game_client_map::iterator curr_client = this->clients_.begin();
-                    curr_client != this->clients_.end(); ++curr_client)
-            {
-                ws_session_ptr client = (*curr_client);
-                //client->disconnect((uint16_t)service_error::WS_ERROR_GOING_AWAY, NULL);
-                client->async_close();
-                curr_index ++;
-            }
-
-            std::cout << "total_size:" << total_clients_size << ", curr_index=" << curr_index << std::endl;
-        }
-    }
-
 };
 
 template<>
@@ -290,7 +270,7 @@ bool game_service<SOCK_TYPE>::unload_plugin(game_plugin* plugin, int seconds_for
 
         if(seconds_for_wait_compl <= -1)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
         else if(seconds_for_wait_compl == 0)
@@ -299,7 +279,7 @@ bool game_service<SOCK_TYPE>::unload_plugin(game_plugin* plugin, int seconds_for
         }
         else
         {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
             if((millisecs_sleeped += 100) <  millisecs_for_wait_compl)
             {
                 continue;
@@ -442,7 +422,6 @@ template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::on_client_leave(game_session<SOCK_TYPE>* client, int leave_code)
 {
     printf("{%s} leave game_service. code={%d}\n", client->id(), leave_code);
-    //client->set_command_dispatcher(NULL);
     {
         ___lock___(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
         this->clients_.erase(client->shared_from_this());
@@ -464,7 +443,7 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
 {
     if (!error)
     {
-        std::cout << "on_check_timeout_clients{" << std::this_thread::get_id() << "}:" << this->clients_.size() << std::endl;
+        //std::cout << "on_check_timeout_clients{" << std::this_thread::get_id() << "}:" << this->clients_.size() << std::endl;
         //如果禁用超时检测，请注释return;
         if(this->clients_.size() > 0)
         {
@@ -629,7 +608,7 @@ inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_sessio
     {
         if(!error && status_code == 200)
         {
-            ___lock___(client_ptr->recv_lock_, "end_auth::commander_mutex");
+            ___lock___(client_ptr->get_recv_mutex(), "end_auth::commander_mutex");
             {
                 if(client_ptr->is_available() == false || client_ptr->error_frame_sended_ || client_ptr->error_frame_recved_)
                     return;
