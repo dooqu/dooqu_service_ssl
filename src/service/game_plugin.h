@@ -7,7 +7,7 @@
 #include <memory>
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/noncopyable.hpp>
-#include "command_dispatcher.h"
+#include "command_handler.h"
 #include "../basic/ws_client.h"
 #include "../basic/ws_service.h"
 #include "game_zone.h"
@@ -38,7 +38,7 @@ namespace service
 //#define foreach_plugin_client(var_client, plugin) for(game_client_map::iterator e = this->clients_.begin(); ( (e != this->clients_.end())? (var_client = (*e).second, var_client != NULL) : false); ++e)//for(game_client_map::iterator  e = plugin->clients_.begin(); ((e != NULL)? ((e.second != NULL)? (var_client = e.seconds, e !=plugin->clients_.end()) : false) : false); ++e)
 typedef std::map<const char*, const char*, char_key_op> plugin_config_map;
 
-class game_plugin : public command_dispatcher, boost::noncopyable
+class game_plugin : public command_handler, boost::noncopyable
 {
 public:
     typedef std::map<const char*, ws_client*, char_key_op> game_client_map;

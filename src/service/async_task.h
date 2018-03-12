@@ -1,5 +1,5 @@
-#ifndef TASK_TIMER_H
-#define TASK_TIMER_H
+#ifndef __ASYNC_TASK_H__
+#define __ASYNC_TASK_H__
 
 #include <set>
 #include <deque>
@@ -8,13 +8,13 @@
 #include "../util/tick_count.h"
 #include "../util/utility.h"
 
-using namespace dooqu_service::util;
-using namespace boost::asio;
 
 namespace dooqu_service
 {
 namespace service
 {
+using namespace dooqu_service::util;
+using namespace boost::asio;
 class async_task : boost::noncopyable
 {
 public:

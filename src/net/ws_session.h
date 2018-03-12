@@ -15,6 +15,7 @@
 #include "ws_request_parser.h"
 #include "buffer_stream.h"
 #include "../util/ws_util.h"
+#include "../util/tick_count.h"
 
 namespace dooqu_service
 {

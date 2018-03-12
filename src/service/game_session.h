@@ -6,8 +6,7 @@
 #include <codecvt>
 #include "../net/ws_session.h"
 #include "game_info.h"
-#include "command.h"
-#include "command_dispatcher.h"
+#include "data_handler.h"
 #include "../util/tick_count.h"
 #include "post_monitor.h"
 
@@ -27,18 +26,18 @@ template<class SOCK_TYPE>
 class game_session : public ws_session<SOCK_TYPE>
 {
 	friend class game_plugin;
-	friend class command_dispatcher;
+	friend class command_handler;
 	friend class game_service<SOCK_TYPE>;
 
 	typedef std::shared_ptr<game_session<SOCK_TYPE>> game_session_ptr;
 private:
 	void simulate_command_process(char *command_data)
-	{
-		if (this->command_dispatcher_ != NULL)
-		{
-			this->command_dispatcher_->simulate_client_data(this, command_data);
+	{		
+		___lock___(this->recv_lock_, "simulate_command_process");
+		if (this->command_handler_ != NULL)
+		{			
+			this->command_handler_->dispatch_data(this, command_data);
 		}
-		//delete [] command_data;
 		free(command_data);
 	}
 
@@ -48,28 +47,29 @@ protected:
 	game_info* game_info_;
 	char id_[ID_LEN];
 	char name_[NAME_LEN];
-	command_dispatcher* command_dispatcher_;
-	command command_;
+	data_handler* command_handler_;
 	tick_count actived_time;
 	post_monitor message_monitor_;
 	post_monitor active_monitor_;
 	int update_retry_count_;
 	int plugin_addr_;
 
-	std::thread::id* curr_dispatcher_thread_id_;
+	//每次大循环触发时，用于记录每次数据循环的thread_id
+	std::thread::id handle_thread_id_;
+	static std::thread::id thread_id_none;
 
 	virtual int on_ws_handshake(ws_request* request)
 	{
-		if (this->command_dispatcher_ != NULL)
+		if (this->command_handler_ != NULL)
 		{
-			return this->command_dispatcher_->on_client_handshake(this, request);
+			return this->command_handler_->on_client_handshake(this, request);
 		}
 		return 0;
 	}
 
 	virtual void on_error(const int error)
 	{
-		assert(this->command_dispatcher_ != NULL);
+		assert(this->command_handler_ != NULL);
 		if (this->is_error_ == false)
 		{
 			this->is_error_ = true;
@@ -77,10 +77,9 @@ protected:
 			{
 				this->set_error_code(error);
 			}
-			if (this->command_dispatcher_ != NULL)
+			if (this->command_handler_ != NULL)
 			{
-				//this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->command_dispatcher_, this));
-				this->command_dispatcher_->dispatch_bye(this);
+				this->command_handler_->dispatch_bye(this);
 			}
 		}
 	}
@@ -120,39 +119,44 @@ protected:
 
 	void dispatch_data(char* command_data)
 	{
-		printf("dispatch_data:%s\n", command_data);
-
-		if (this->command_dispatcher_ == NULL)
+		//需要判定当前的调用是否是在数据大循环中；
+		//如果不是在大循环中，有可能用户的调用会在调用lock_recv之前调用其他mutex的锁定，造成死锁
+		if (this->command_handler_ == NULL)
 			return;
 
 		int command_data_len = strlen(command_data);
-
 		assert((command_data_len + 1) <= game_session<SOCK_TYPE>::MAX_BUFFER_SIZE);
 
 		bool locked = this->recv_lock_.try_lock();
-		if (locked && this->curr_dispatcher_thread_id_ == &std::this_thread::get_id())
+		if (locked && this->handle_thread_id_ == std::this_thread::get_id())
 		{
 			char command_data_clone[ws_session<SOCK_TYPE>::MAX_BUFFER_SIZE];
 			command_data_clone[sprintf(command_data_clone, command_data, command_data_len)] = 0;
-			this->command_dispatcher_->simulate_client_data(this, command_data_clone);
+			this->command_handler_->dispatch_data(this, command_data_clone);
 			this->recv_lock_.unlock();
 		}
 		else
 		{
-			assert(this->curr_dispatcher_thread_id_ != &std::this_thread::get_id());
+			assert(this->handle_thread_id_ != std::this_thread::get_id());
 
 			char *command_data_clone = (char *)malloc(command_data_len + 1); //new char[command_data_len + 1];
 			std::strcpy(command_data_clone, command_data);
 			command_data_clone[std::strlen(command_data)] = 0;
+			//if(locked)?
 			this->recv_lock_.unlock();
 			this->ios.post(std::bind(&game_session<SOCK_TYPE>::simulate_command_process, this, command_data_clone));
 		}
 	}
 
-	void set_command_dispatcher(void* dispatcher)
+	void bind_handler(data_handler* handler)
 	{
-		command_dispatcher* cmd_dispatcher = (command_dispatcher*)dispatcher;
-		this->command_dispatcher_ = cmd_dispatcher;	
+		data_handler* cmd_dispatcher = (data_handler*)handler;
+		this->command_handler_ = cmd_dispatcher;	
+	}
+
+	data_handler* get_handler()
+	{
+		return this->command_handler_;
 	}
 
 	void active()
@@ -168,11 +172,6 @@ protected:
 	int update_retry_count(bool increase = false)
 	{
 		return (increase)? ++update_retry_count_ : update_retry_count_;
-	}
-
-	void* get_command()
-	{
-		return &this->command_;
 	}
 
 	void* get_game_info()
@@ -202,12 +201,14 @@ protected:
 	}
 
 	virtual void on_frame_data(ws_framedata* frame)
-	{
+	{		
 		this->active();
-		if (this->command_dispatcher_ != NULL)
-		{
-			this->command_dispatcher_->on_client_framedata(this, frame);
+		this->handle_thread_id_ = std::this_thread::get_id();
+		if (this->command_handler_ != NULL)
+		{			
+			this->command_handler_->on_client_framedata(this, frame);			
 		}
+		this->handle_thread_id_ = thread_id_none;		
 	}
 
 	virtual std::shared_ptr<game_session<SOCK_TYPE>> get_shared_ptr()
@@ -216,14 +217,13 @@ protected:
 	}
 };
 
-///////////////////
+
 template<>
 inline game_session<tcp_stream>::game_session(io_service& ios) :
 	ws_session<tcp_stream>(ios),
 	game_info_(NULL),
-	command_dispatcher_(NULL),
-	plugin_addr_(0),
-	curr_dispatcher_thread_id_(NULL)
+	command_handler_(NULL),
+	plugin_addr_(0)
 {
 	this->id_[0] = 0;
 	this->name_[0] = 0;
@@ -239,9 +239,8 @@ template<>
 inline game_session<ssl_stream>::game_session(io_service& ios, boost::asio::ssl::context& context) :
 	ws_session<ssl_stream>(ios, context),
 	game_info_(NULL),
-	command_dispatcher_(NULL),
-	plugin_addr_(0),
-	curr_dispatcher_thread_id_(NULL)
+	command_handler_(NULL),
+	plugin_addr_(0)
 {
 	this->id_[0] = 0;
 	this->name_[0] = 0;

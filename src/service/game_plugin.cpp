@@ -140,7 +140,7 @@ void game_plugin::on_client_command(ws_client* client, command* command)
         client->disconnect((uint16_t)service_error::CONSTANT_REQUEST, "CONSTANT REQUEST");
         return;
     }
-    command_dispatcher::on_client_command(client, command);
+    command_handler::on_client_command(client, command);
     {
         using namespace dooqu_service::net;        
         // thread_status_map::iterator curr_thread_pair = this->game_service_->threads_status()->find(std::this_thread::get_id());
@@ -220,7 +220,7 @@ int game_plugin::join_client(ws_client* client)
     if (ret == service_error::NO_ERROR)
     {
         //编译
-        client->set_command_dispatcher(this);
+        //client->set_command_dispatcher(this);
         //把当前玩家加入成员组
         this->clients_[client->id()] = client;
         //调用玩家进入成员组后的事件
@@ -238,8 +238,8 @@ void game_plugin::remove_client_from_plugin(ws_client* client)
         this->clients_.erase(client->id());
     }
     this->on_client_leave(client, client->get_error_code());
-    command_dispatcher* dispatcher = dynamic_cast<command_dispatcher*>(this->get_game_service());
-    dispatcher->dispatch_bye(client);
+    command_handler* handler = dynamic_cast<command_handler*>(this->get_game_service());
+    handler->dispatch_bye(client);
 }
 
 

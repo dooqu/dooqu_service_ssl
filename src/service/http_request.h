@@ -258,7 +258,7 @@ private:
         }
     }
 public:
-    void read_response_content(string& reader)
+    void read_response_content(std::string& reader)
     {
         // std::istream is(&response_);
         // std::ostringstream tmp;

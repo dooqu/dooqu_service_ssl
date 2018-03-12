@@ -11,7 +11,7 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/pool/singleton_pool.hpp>
 #include "../net/tcp_server.h"
-#include "../service/command_dispatcher.h"
+#include "../service/command_handler.h"
 #include "../util/utility.h"
 #include "../util/char_key_op.h"
 #include "service_error.h"
@@ -52,7 +52,7 @@ class game_plugin;
 
 
 template<class SOCK_TYPE>
-class game_service : public command_dispatcher, public tcp_server<SOCK_TYPE>, public async_task
+class game_service : public command_handler, public tcp_server<SOCK_TYPE>, public async_task
 {
 public:
     typedef std::shared_ptr<ws_session<SOCK_TYPE> > ws_session_ptr;
@@ -406,7 +406,7 @@ inline void game_service<SOCK_TYPE>::on_client_connected(ws_session<SOCK_TYPE>* 
     game_session<SOCK_TYPE>* client = dynamic_cast<game_session<SOCK_TYPE>*>(t_client);
     client->set_available(true);
     //设置命令的监听者为当前service
-    client->set_command_dispatcher(this);
+    client->bind_handler(this);
     {
 		___lock___(this->clients_mutex_, "game_service::on_client_join");
         //在登录用户组中注册
@@ -455,7 +455,7 @@ inline void game_service<SOCK_TYPE>::on_check_timeout_clients(const boost::syste
                 ws_session<SOCK_TYPE>* ws_sess = (*curr_client).get();
                 game_session<SOCK_TYPE>*  game_sess = dynamic_cast<game_session<SOCK_TYPE>*>(ws_sess);
                 game_session_ptr client = game_sess->get_shared_ptr();
-                if (client->command_dispatcher_ == this && client->actived_time_elapsed() > 30 * 1000)
+                if (client->command_handler_ == this && client->actived_time_elapsed() > 30 * 1000)
                 {
                     uint16_t ret = service_error::TIME_OUT;
                     char* reason = NULL;
@@ -568,7 +568,7 @@ inline bool game_service<SOCK_TYPE>::start_http_request(const char* host, const 
 template<class SOCK_TYPE>
 inline void game_service<SOCK_TYPE>::http_request_handle(const boost::system::error_code& err, const int status_code, void* req_block, req_callback callback)
 {
-    string response_content;
+    std::string response_content;
     http_request* req = (http_request*)req_block;;
     if(!err && status_code == 200)
     {
@@ -620,7 +620,12 @@ inline void game_service<SOCK_TYPE>::begin_auth(game_plugin* plugin, game_sessio
                     game_plugin_map::iterator finder = this->plugins_.find(game_id);
                     if(finder != this->plugins_.end())
                     {
-                        ret = (*finder).second->auth_client(client_ptr.get(), response_string);
+                        game_plugin* plugin = (*finder).second;
+                        ret = plugin->auth_client(client_ptr.get(), response_string);
+                        if(ret == service_error::NO_ERROR)
+                        {
+                            client_ptr->bind_handler(plugin);
+                        }
                     }
                     else
                     {
