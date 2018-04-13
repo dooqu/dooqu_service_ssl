@@ -345,11 +345,21 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		else
 		{
 			//如果指向的位置不存在，需要新申请对象；
-			//如果已经存在了超过16个对象，说明网络异常那么断开用户；不再新申请数据;
+			//如果已经存在了超过阈值
 			if (this->send_buffer_sequence_.size() >= MAX_BUFFER_SEQUENCE_SIZE)
 			{
-				*buffer_alloc = NULL;
-				return false;
+				//如果队列前面有空闲的位置，那么整体向前串read_pos_个位置
+				if(this->read_pos_ > 0)
+				{
+					std::copy(send_buffer_sequence_.begin() + read_pos_, send_buffer_sequence_.end(), send_buffer_sequence_.begin());
+					write_pos_ -= read_pos_;
+					read_pos_ = 0;
+				}
+				else
+				{
+					*buffer_alloc = NULL;
+					return false;
+				}
 			}
 
 			buffer_stream *curr_buffer = buffer_stream::create(MAX_BUFFER_SIZE);
@@ -359,8 +369,6 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 
 			this->send_buffer_sequence_.push_back(curr_buffer);
 			std::cout << this << " 创建buffer_stream " << this->send_buffer_sequence_.size() << std::endl;
-			//得到当前的send_buffer/
-			//this->write_pos_ = this->send_buffer_sequence_.size() - 1;
 			*buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
 			//将写入指针指向下一个预置位置
 			this->write_pos_++;
@@ -569,7 +577,7 @@ class ws_session : public ws_client, public std::enable_shared_from_this<ws_sess
 		___lock___(this->send_lock_, "ssl_connection::async_close");
 		boost::system::error_code err_code;
 		this->socket().shutdown(boost::asio::socket_base::shutdown_both, err_code);
-		this->socket().close();
+		//this->socket().close();
 	}
 };
 
@@ -647,7 +655,7 @@ inline void ws_session<ssl_stream>::async_close()
 	boost::system::error_code err_code;
 	ws_session_ptr self = shared_from_this();
 	this->socket().async_shutdown([this, self](const boost::system::error_code &error) {
-		this->socket().lowest_layer().close();
+		//this->socket().lowest_layer().close();
 	});
 }
 

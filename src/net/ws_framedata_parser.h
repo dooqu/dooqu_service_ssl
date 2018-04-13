@@ -153,10 +153,8 @@ public:
         if (frame.opcode_ == 8)
         {
             frame.code = 1005;
-            //�ر�֡��Ĭ��status=1005
             if (frame.payload_length_ >= 2)
             {
-                //����ǹر�֡��ͬʱ��payload����������˹رյ�code��reason
                 frame.code = dooqu_service::util::ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
                 //std::cout << "close code:" << frame.code << std::endl;
 

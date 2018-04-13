@@ -1,12 +1,14 @@
 #ifndef __WS_FRAMEDATA_H__
 #define __WS_FRAMEDATA_H__
+
+#include <boost/noncopyable.hpp>
+
 namespace dooqu_service
 {
 namespace basic
 {
-#include <stddef.h>
 
-struct ws_framedata
+struct ws_framedata : boost::noncopyable
 {
     enum opcode
     {

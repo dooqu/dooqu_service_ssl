@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-
+#include <boost/noncopyable.hpp>
 namespace dooqu_service
 {
 namespace net
@@ -15,7 +15,7 @@ struct header
     std::string value;
 };
 
-struct ws_request
+struct ws_request : boost::noncopyable
 {
     std::string method;
     std::string uri;
