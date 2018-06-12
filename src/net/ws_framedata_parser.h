@@ -125,17 +125,12 @@ public:
         {
             frame.payload_length_ = ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
             frame.pos_ += 2;
-
-            //std::cout << "126:payload_length:" << frame.payload_length_ << std::endl;
         }
         else if (frame.payload_length_ == 127)
         {
             frame.payload_length_ = ws_util::get_int64_from_net_buf(frame.data + frame.pos_);
             frame.pos_ += 8;
-            //std::cout << "127:payload_length:" << frame.payload_length_ << std::endl;
         }
-
-        //std::cout << "payload_length: " << frame.payload_length_ << std::endl;
         return 0;
     }
 
@@ -156,14 +151,11 @@ public:
             if (frame.payload_length_ >= 2)
             {
                 frame.code = dooqu_service::util::ws_util::get_int16_from_net_buf(frame.data + frame.pos_);
-                //std::cout << "close code:" << frame.code << std::endl;
-
                 //fill the close reason.
                 if (frame.payload_length_ > 2)
                 {
                     frame.data[frame.data_pos_ + frame.payload_length_] = 0;
                     frame.reason = &frame.data[frame.data_pos_ + 2];
-                    //std::cout << "close reason:" << frame.reason << std::endl;
                 }
             }
         }
